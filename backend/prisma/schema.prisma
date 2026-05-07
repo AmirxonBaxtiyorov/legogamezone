@@ -1,0 +1,179 @@
+// Game Zone Qarz - Prisma schema
+// SQLite (development), PostgreSQL'ga keyinchalik o'tish oson
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================================
+// Filial — har bir game zone joylashuvi
+// =====================================================================
+model Branch {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  address   String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  clients   Client[]
+  debts     Debt[]
+  auditLogs AuditLog[]
+}
+
+// =====================================================================
+// Foydalanuvchi — owner yoki admin
+// =====================================================================
+model User {
+  id               Int       @id @default(autoincrement())
+  username         String    @unique
+  passwordHash     String
+  fullName         String
+  role             String // "owner" | "admin"
+  branchId         Int? // owner uchun null, admin uchun majburiy
+  branch           Branch?   @relation(fields: [branchId], references: [id])
+  telegramId       String?   @unique
+  telegramUsername String?
+  isActive         Boolean   @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  createdDebts     Debt[]    @relation("DebtCreator")
+  recordedPayments Payment[] @relation("PaymentRecorder")
+  auditLogs        AuditLog[]
+
+  @@index([branchId])
+  @@index([role])
+}
+
+// =====================================================================
+// Mijoz — qarz oluvchi shaxs (filialga biriktirilgan)
+// =====================================================================
+model Client {
+  id          Int       @id @default(autoincrement())
+  branchId    Int
+  branch      Branch    @relation(fields: [branchId], references: [id])
+  name        String
+  phone       String
+  notes       String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  deletedById Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  debts       Debt[]
+
+  @@unique([branchId, phone]) // bir filialda bir telefon bir marta
+  @@index([branchId])
+  @@index([phone])
+  @@index([isDeleted])
+}
+
+// =====================================================================
+// Qarz — mijozga yozilgan har bir qarz yozuvi
+// =====================================================================
+model Debt {
+  id              Int        @id @default(autoincrement())
+  branchId        Int
+  branch          Branch     @relation(fields: [branchId], references: [id])
+  clientId        Int
+  client          Client     @relation(fields: [clientId], references: [id])
+  itemType        String // "playstation" | "computer" | "billiard" | "other"
+  itemDetails     String?
+  amount          Decimal // qarz to'liq summasi
+  paidAmount      Decimal    @default(0)
+  remainingAmount Decimal // application-side hisoblanadi (amount - paidAmount)
+  borrowedDate    DateTime
+  dueDate         DateTime
+  status          String     @default("active") // active | partial | paid | overdue | cancelled
+  notes           String?
+  isDeleted       Boolean    @default(false)
+  deletedAt       DateTime?
+  deletedById     Int?
+  createdById     Int
+  createdBy       User       @relation("DebtCreator", fields: [createdById], references: [id])
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  payments        Payment[]
+  reminders       Reminder[]
+
+  @@index([branchId])
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([isDeleted])
+  @@index([createdById])
+}
+
+// =====================================================================
+// To'lov — qarzga yozilgan to'liq yoki qisman to'lov
+// =====================================================================
+model Payment {
+  id           Int      @id @default(autoincrement())
+  debtId       Int
+  debt         Debt     @relation(fields: [debtId], references: [id])
+  amount       Decimal
+  method       String // "cash" | "card" | "transfer"
+  paidDate     DateTime
+  notes        String?
+  recordedById Int
+  recordedBy   User     @relation("PaymentRecorder", fields: [recordedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([debtId])
+  @@index([paidDate])
+  @@index([method])
+  @@index([recordedById])
+}
+
+// =====================================================================
+// Eslatma — telegram yoki brauzerga yuborilgan bildirishnoma logi
+// =====================================================================
+model Reminder {
+  id        Int      @id @default(autoincrement())
+  debtId    Int
+  debt      Debt     @relation(fields: [debtId], references: [id])
+  channel   String // "telegram" | "browser"
+  recipient String // user ID yoki telegram chat id
+  sentAt    DateTime @default(now())
+  status    String // "sent" | "failed"
+  message   String
+
+  @@index([debtId])
+  @@index([sentAt])
+}
+
+// =====================================================================
+// Audit log — barcha muhim amallar yozuvi (faqat owner ko'radi)
+// =====================================================================
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  action    String // create | update | delete | soft_delete | restore | payment | login | logout | backup
+  tableName String
+  recordId  Int
+  branchId  Int?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  oldValue  String? // JSON string
+  newValue  String? // JSON string
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([branchId])
+  @@index([tableName, recordId])
+  @@index([createdAt])
+  @@index([action])
+}

@@ -1,0 +1,10 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Game Zone Qarz frontend (React + Vite + TS) — keyingi bosqichlarda quriladi",
+  "scripts": {
+    "dev": "echo \"Frontend keyingi bosqichlarda quriladi\" && exit 0",
+    "build": "echo \"Frontend keyingi bosqichlarda quriladi\" && exit 0"
+  }
+}

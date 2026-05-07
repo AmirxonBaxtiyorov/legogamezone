@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Zone Qarz — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎮%3C/text%3E%3C/svg%3E" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">
+          <div class="logo-icon">🎮</div>
+          <div class="logo-text">
+            <h1 data-i18n="appName">Game Zone Qarz</h1>
+            <span class="logo-sub" data-i18n="appSub">Boshqaruv tizimi</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="profile-switcher" id="profileSwitcher">
+          <button class="profile-btn" id="profileBtn" type="button">
+            <div class="profile-avatar" id="profileAvatar">?</div>
+            <div class="profile-info">
+              <div class="profile-name" id="profileName">—</div>
+              <div class="profile-role" id="profileRole">—</div>
+            </div>
+            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="profile-dropdown" id="profileDropdown" hidden>
+            <div class="dropdown-head" data-i18n="switchProfile">Profilni almashtirish</div>
+            <div class="dropdown-body" id="profileList"></div>
+            <div class="dropdown-foot" data-i18n="previewNote">Auth hali yo'q — RBAC namoyishi uchun</div>
+          </div>
+        </div>
+        <div class="lang-switcher">
+          <button class="lang-btn active" data-lang="uz">UZ</button>
+          <button class="lang-btn" data-lang="cyr">ЎЗ</button>
+          <button class="lang-btn" data-lang="ru">RU</button>
+        </div>
+        <button class="theme-btn" id="themeBtn" title="Tema">
+          <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+          <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Hero / Greeting -->
+    <section class="hero">
+      <div class="hero-content">
+        <h2 id="heroTitle" data-i18n="heroTitle">Tarmoq qarzlari ko'rinishi</h2>
+        <p id="heroSub" data-i18n="heroSub">Barcha filiallar bo'yicha real vaqt statistikasi</p>
+        <div class="hero-badges">
+          <span class="hero-badge" id="heroRoleBadge">—</span>
+          <span class="hero-badge hero-badge-soft" id="heroBranchBadge" hidden>—</span>
+        </div>
+      </div>
+      <div class="hero-time" id="liveTime"></div>
+    </section>
+
+    <!-- Top stats -->
+    <section class="stats-grid">
+      <button class="stat-card stat-primary" data-filter="total-debt">
+        <div class="stat-icon">💰</div>
+        <div class="stat-body">
+          <div class="stat-label" data-i18n="totalDebt">Jami qarz</div>
+          <div class="stat-value" id="totalDebt">—</div>
+          <div class="stat-meta" data-i18n="allBranches">barcha filiallar</div>
+        </div>
+      </button>
+
+      <button class="stat-card stat-success" data-filter="total-paid">
+        <div class="stat-icon">✅</div>
+        <div class="stat-body">
+          <div class="stat-label" data-i18n="totalPaid">Jami to'langan</div>
+          <div class="stat-value" id="totalPaid">—</div>
+          <div class="stat-meta" data-i18n="allTime">umumiy</div>
+        </div>
+      </button>
+
+      <button class="stat-card stat-warning" data-filter="remaining">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-body">
+          <div class="stat-label" data-i18n="totalRemaining">Qoldiq qarz</div>
+          <div class="stat-value" id="totalRemaining">—</div>
+          <div class="stat-meta" data-i18n="toCollect">undirish kerak</div>
+        </div>
+      </button>
+
+      <button class="stat-card stat-danger" data-filter="overdue">
+        <div class="stat-icon">🔴</div>
+        <div class="stat-body">
+          <div class="stat-label" data-i18n="overdue">Muddati o'tgan</div>
+          <div class="stat-value" id="overdueCount">—</div>
+          <div class="stat-meta" data-i18n="urgent">shoshilinch</div>
+        </div>
+      </button>
+
+      <button class="stat-card stat-info" data-filter="due-today">
+        <div class="stat-icon">📅</div>
+        <div class="stat-body">
+          <div class="stat-label" data-i18n="dueToday">Bugun muddat</div>
+          <div class="stat-value" id="dueTodayCount">—</div>
+          <div class="stat-meta" data-i18n="needsAttention">e'tibor bering</div>
+        </div>
+      </button>
+
+      <button class="stat-card stat-purple" data-filter="this-month">
+        <div class="stat-icon">📊</div>
+        <div class="stat-body">
+          <div class="stat-label" data-i18n="thisMonth">Bu oy tushum</div>
+          <div class="stat-value" id="thisMonthTotal">—</div>
+          <div class="stat-meta" data-i18n="paymentsReceived">qabul qilingan</div>
+        </div>
+      </button>
+    </section>
+
+    <!-- Sub stats: counts -->
+    <section class="counters">
+      <div class="counter">
+        <span class="counter-value" id="branchesCount">—</span>
+        <span class="counter-label" data-i18n="branches">Filiallar</span>
+      </div>
+      <div class="counter">
+        <span class="counter-value" id="usersCount">—</span>
+        <span class="counter-label" data-i18n="users">Foydalanuvchilar</span>
+      </div>
+      <div class="counter">
+        <span class="counter-value" id="clientsCount">—</span>
+        <span class="counter-label" data-i18n="clients">Mijozlar</span>
+      </div>
+      <div class="counter">
+        <span class="counter-value" id="debtsCount">—</span>
+        <span class="counter-label" data-i18n="debts">Qarzlar</span>
+      </div>
+      <div class="counter">
+        <span class="counter-value" id="paymentsCount">—</span>
+        <span class="counter-label" data-i18n="payments">To'lovlar</span>
+      </div>
+      <div class="counter">
+        <span class="counter-value" id="auditCount">—</span>
+        <span class="counter-label" data-i18n="auditEvents">Audit yozuvlari</span>
+      </div>
+    </section>
+
+    <!-- Asosiy chiziqli grafik: oxirgi 30 kun -->
+    <section class="card chart-card">
+      <div class="card-head">
+        <h3 data-i18n="chartTimeline">Oxirgi 30 kun</h3>
+        <span class="card-sub" data-i18n="chartTimelineSub">qo'shilgan qarz va qabul qilingan to'lovlar</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-host" style="height: 320px;">
+          <canvas id="chartTimeline"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pie/doughnut charts -->
+    <section class="three-col">
+      <div class="card">
+        <div class="card-head">
+          <h3 data-i18n="chartStatus">Status taqsimoti</h3>
+        </div>
+        <div class="card-body">
+          <div class="chart-host" style="height: 240px;">
+            <canvas id="chartStatus"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h3 data-i18n="chartMethods">To'lov usullari</h3>
+        </div>
+        <div class="card-body">
+          <div class="chart-host" style="height: 240px;">
+            <canvas id="chartMethods"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h3 data-i18n="chartItems">Xizmat turlari</h3>
+        </div>
+        <div class="card-body">
+          <div class="chart-host" style="height: 240px;">
+            <canvas id="chartItems"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bar chart: filiallar taqqoslash -->
+    <section class="card">
+      <div class="card-head">
+        <h3 data-i18n="chartBranches">Filiallar bar chart</h3>
+        <span class="card-sub" data-i18n="chartBranchesSub">summa bo'yicha taqqoslash</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-host" style="height: 280px;">
+          <canvas id="chartBranches"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Two-column section: Branches + Payment methods -->
+    <section class="two-col">
+      <div class="card">
+        <div class="card-head">
+          <h3 data-i18n="branchComparison">Filiallar taqqoslash</h3>
+          <span class="card-sub" data-i18n="branchComparisonSub">qarzlar va to'lovlar bo'yicha</span>
+        </div>
+        <div class="card-body" id="branchesList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3 data-i18n="paymentMethods">To'lov usullari</h3>
+          <span class="card-sub" data-i18n="paymentMethodsSub">bu oy bo'yicha</span>
+        </div>
+        <div class="card-body">
+          <div class="method-bars" id="methodBars"></div>
+          <div class="method-legend" id="methodLegend"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Status badges -->
+    <section class="card">
+      <div class="card-head">
+        <h3 data-i18n="debtStatuses">Qarzlar holati</h3>
+        <span class="card-sub" data-i18n="debtStatusesSub">status bo'yicha taqsimot</span>
+      </div>
+      <div class="status-grid" id="statusGrid"></div>
+    </section>
+
+    <!-- Top debtors -->
+    <section class="card">
+      <div class="card-head">
+        <h3 data-i18n="topDebtors">Eng katta qarzdorlar</h3>
+        <span class="card-sub" data-i18n="topDebtorsSub">qoldiq qarz bo'yicha TOP-5</span>
+      </div>
+      <div class="card-body">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th data-i18n="thName">Ism</th>
+                <th data-i18n="thPhone">Telefon</th>
+                <th data-i18n="thBranch">Filial</th>
+                <th class="num" data-i18n="thRemaining">Qoldiq</th>
+              </tr>
+            </thead>
+            <tbody id="topClientsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent debts -->
+    <section class="card">
+      <div class="card-head">
+        <h3 data-i18n="recentDebts">Oxirgi qarzlar</h3>
+        <span class="card-sub" data-i18n="recentDebtsSub">eng so'nggi 10 ta yozuv</span>
+      </div>
+      <div class="card-body">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th data-i18n="thClient">Mijoz</th>
+                <th data-i18n="thBranch">Filial</th>
+                <th data-i18n="thItem">Xizmat</th>
+                <th class="num" data-i18n="thAmount">Summa</th>
+                <th class="num" data-i18n="thRemaining">Qoldiq</th>
+                <th data-i18n="thDue">Muddat</th>
+                <th data-i18n="thStatus">Status</th>
+              </tr>
+            </thead>
+            <tbody id="recentDebtsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent payments + Audit -->
+    <section class="two-col">
+      <div class="card">
+        <div class="card-head">
+          <h3 data-i18n="recentPayments">Oxirgi to'lovlar</h3>
+          <span class="card-sub" data-i18n="recentPaymentsSub">10 ta so'nggi yozuv</span>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table class="data-table compact">
+              <thead>
+                <tr>
+                  <th data-i18n="thDate">Sana</th>
+                  <th data-i18n="thClient">Mijoz</th>
+                  <th data-i18n="thMethod">Usul</th>
+                  <th class="num" data-i18n="thAmount">Summa</th>
+                </tr>
+              </thead>
+              <tbody id="recentPaymentsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3 data-i18n="recentActivity">Oxirgi hodisalar</h3>
+          <span class="card-sub" data-i18n="recentActivitySub">audit log</span>
+        </div>
+        <div class="card-body">
+          <ul class="activity-list" id="activityList"></ul>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div data-i18n="footerNote">1-bosqich preview — Express API va React frontend keyingi bosqichlarda quriladi</div>
+      <div class="footer-meta" id="footerMeta"></div>
+    </footer>
+  </div>
+
+  <!-- Modal: batafsil ma'lumot -->
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div>
+          <h3 class="modal-title" id="modalTitle">—</h3>
+          <div class="modal-sub" id="modalSub"></div>
+        </div>
+        <button class="modal-close" id="modalClose" aria-label="Yopish">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <div class="modal-loading" data-i18n="loading">Yuklanmoqda...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
