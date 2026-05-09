@@ -10,7 +10,7 @@
     "preview": "tsx src/preview-server.ts",
     "build": "prisma generate && tsc -p tsconfig.json",
     "postinstall": "prisma generate || echo 'prisma generate skipped'",
-    "start": "prisma db push --accept-data-loss --skip-generate && node dist/preview-server.js",
+    "start": "prisma db push --accept-data-loss --skip-generate && tsx prisma/seed-production.ts && node dist/preview-server.js",
     "start:no-migrate": "node dist/preview-server.js",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
