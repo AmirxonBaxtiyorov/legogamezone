@@ -40,8 +40,6 @@ model User {
   role             String
   branchId         Int?
   branch           Branch?   @relation(fields: [branchId], references: [id])
-  telegramId       String?   @unique
-  telegramUsername String?
   isActive         Boolean   @default(true)
   permissions      String?
   lastLoginAt      DateTime?
@@ -175,19 +173,4 @@ model AppSetting {
   type        String   @default("text")
   updatedAt   DateTime @updatedAt
   updatedById Int?
-}
-
-model OtpCode {
-  id         Int       @id @default(autoincrement())
-  userId     Int?
-  purpose    String
-  codeHash   String
-  expiresAt  DateTime
-  consumedAt DateTime?
-  attempts   Int       @default(0)
-  createdAt  DateTime  @default(now())
-
-  @@index([userId, purpose])
-  @@index([expiresAt])
-  @@index([consumedAt])
 }

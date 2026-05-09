@@ -5,13 +5,10 @@ import {
   Trash2,
   ShieldCheck,
   KeyRound,
-  LinkIcon,
-  Unlink,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { toast } from "sonner";
 
 import {
   useAdmins,
@@ -20,8 +17,6 @@ import {
   useUpdateAdmin,
   useDeleteAdmin,
   useResetAdminPassword,
-  useGenerateTelegramCode,
-  useUnlinkTelegram,
 } from "@/hooks/useApi";
 import { formatDateTime } from "@/lib/format";
 
@@ -85,15 +80,11 @@ export function AdminsPage() {
   const updateMut = useUpdateAdmin();
   const deleteMut = useDeleteAdmin();
   const resetMut = useResetAdminPassword();
-  const tgCodeMut = useGenerateTelegramCode();
-  const tgUnlinkMut = useUnlinkTelegram();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Admin | null>(null);
   const [resetting, setResetting] = useState<Admin | null>(null);
-  const [tgCode, setTgCode] = useState<{ admin: Admin; code: string } | null>(null);
   const [deleting, setDeleting] = useState<Admin | null>(null);
-  const [unlinking, setUnlinking] = useState<Admin | null>(null);
 
   const createForm = useForm<z.infer<typeof createSchema>>({ resolver: zodResolver(createSchema) });
   const editForm = useForm<z.infer<typeof updateSchema>>({ resolver: zodResolver(updateSchema) });
@@ -126,10 +117,6 @@ export function AdminsPage() {
     await resetMut.mutateAsync({ id: resetting.id, newPassword: v.newPassword });
     setResetting(null);
   };
-  const generateCode = async (a: Admin) => {
-    const r = await tgCodeMut.mutateAsync(a.id);
-    setTgCode({ admin: a, code: r.code });
-  };
 
   return (
     <div>
@@ -161,7 +148,6 @@ export function AdminsPage() {
                 <TableHead>Ism</TableHead>
                 <TableHead>Rol</TableHead>
                 <TableHead className="hidden md:table-cell">Filial</TableHead>
-                <TableHead className="hidden md:table-cell">Telegram</TableHead>
                 <TableHead className="hidden lg:table-cell">Oxirgi kirish</TableHead>
                 <TableHead className="text-right">Amallar</TableHead>
               </TableRow>
@@ -184,13 +170,6 @@ export function AdminsPage() {
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                     {a.branchName ?? "—"}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm">
-                    {a.telegramId ? (
-                      <span className="text-emerald-600">@{a.telegramUsername ?? a.telegramId}</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
                   <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
                     {a.lastLoginAt ? formatDateTime(a.lastLoginAt) : "—"}
                   </TableCell>
@@ -202,25 +181,6 @@ export function AdminsPage() {
                       <Button size="icon" variant="ghost" onClick={() => setResetting(a)} title="Parol reset">
                         <KeyRound className="size-4" />
                       </Button>
-                      {a.telegramId ? (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setUnlinking(a)}
-                          title="Telegram aloqasini uzish"
-                        >
-                          <Unlink className="size-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => generateCode(a)}
-                          title="Telegram bog'lash kodi"
-                        >
-                          <LinkIcon className="size-4" />
-                        </Button>
-                      )}
                       <Button size="icon" variant="ghost" onClick={() => setDeleting(a)} title="O'chirish">
                         <Trash2 className="size-4 text-destructive" />
                       </Button>
@@ -354,34 +314,6 @@ export function AdminsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Telegram code */}
-      <Dialog open={!!tgCode} onOpenChange={(o) => !o && setTgCode(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Telegram bog'lash kodi</DialogTitle>
-            <DialogDescription>
-              {tgCode?.admin.fullName} botda <code className="bg-muted px-1 rounded">/start {tgCode?.code}</code> yuborsin.
-              5 daqiqa ichida amal qiladi.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="text-center py-6">
-            <div className="text-4xl font-mono font-bold tracking-widest">{tgCode?.code}</div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (tgCode) navigator.clipboard.writeText(tgCode.code);
-                toast.success("Kod nusxa olindi");
-              }}
-            >
-              Nusxa olish
-            </Button>
-            <Button onClick={() => setTgCode(null)}>Yopish</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
@@ -391,15 +323,6 @@ export function AdminsPage() {
         onConfirm={async () => {
           if (deleting) await deleteMut.mutateAsync(deleting.id);
           setDeleting(null);
-        }}
-      />
-      <ConfirmDialog
-        open={!!unlinking}
-        onOpenChange={(o) => !o && setUnlinking(null)}
-        title="Telegram aloqasini uzasizmi?"
-        onConfirm={async () => {
-          if (unlinking) await tgUnlinkMut.mutateAsync(unlinking.id);
-          setUnlinking(null);
         }}
       />
     </div>

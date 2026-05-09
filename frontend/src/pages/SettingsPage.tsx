@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 
 export function SettingsPage() {
   const { data: settings, isLoading } = useSettings();
@@ -18,7 +17,6 @@ export function SettingsPage() {
   const [name, setName] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#4f46e5");
-  const [twoFactor, setTwoFactor] = useState(false);
   const [logo, setLogo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,7 +24,6 @@ export function SettingsPage() {
     setName(settings.systemName?.value ?? "Game Zone Qarz");
     setSubtitle(settings.systemSubtitle?.value ?? "");
     setPrimaryColor(settings.primaryColor?.value ?? "#4f46e5");
-    setTwoFactor(settings.twoFactorOwner?.value === "1");
     setLogo(settings.logo?.value ?? null);
   }, [settings]);
 
@@ -45,14 +42,13 @@ export function SettingsPage() {
       systemName: name,
       systemSubtitle: subtitle,
       primaryColor,
-      twoFactorOwner: twoFactor ? "1" : "0",
       ...(logo ? { logo } : {}),
     });
   };
 
   return (
     <div>
-      <PageHeader title="Sozlamalar" description="Brending, 2FA va boshqalar" showBranchFilter={false} />
+      <PageHeader title="Sozlamalar" description="Brending va tashqi ko'rinish" showBranchFilter={false} />
 
       {isLoading ? (
         <div className="text-muted-foreground">Yuklanmoqda...</div>
@@ -118,24 +114,6 @@ export function SettingsPage() {
                 <p className="text-xs text-muted-foreground">
                   Maks 2 MB. PNG/JPEG/SVG.
                 </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Xavfsizlik</CardTitle>
-              <CardDescription>2FA va boshqa sozlamalar</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <Label className="text-base">2FA owner uchun</Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Telegramga 6-raqamli kod yuboriladi (login vaqtida)
-                  </p>
-                </div>
-                <Switch checked={twoFactor} onCheckedChange={setTwoFactor} />
               </div>
             </CardContent>
           </Card>

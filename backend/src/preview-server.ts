@@ -1,5 +1,5 @@
 // Game Zone Qarz — backend server
-// Hardened: helmet, CORS, rate-limit, Zod validation, 2FA in DB, $transaction.
+// Hardened: helmet, CORS, rate-limit, Zod validation, $transaction.
 
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
@@ -7,23 +7,15 @@ import fs from "fs";
 import { Prisma } from "@prisma/client";
 import helmet from "helmet";
 import cors from "cors";
-import { createBot } from "./telegram-bot";
 
 // Modulli foundation
 import { env, corsOrigins, isProduction } from "./config/env";
 import { prisma } from "./config/prisma";
 import { logger } from "./lib/logger";
 import { signToken, verifyToken } from "./lib/jwt";
-import {
-  issueOtp,
-  consumeOtp,
-  issueTelegramLinkCode,
-  consumeTelegramLinkCode,
-  purgeExpiredOtps,
-} from "./lib/otp";
 import { loginLimiter, apiLimiter } from "./middleware/rateLimit";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
-import { loginSchema, twoFactorSchema } from "./schemas/auth";
+import { loginSchema } from "./schemas/auth";
 
 // types/express.d.ts global declaration — tsconfig orqali avtomatik o'qiladi.
 
@@ -33,9 +25,6 @@ const app = express();
 const PORT = env.PORT;
 const PUBLIC_DIR = path.resolve(process.cwd(), "public");
 const BUILD_VERSION = String(Date.now());
-
-const BOT_TOKEN = env.TELEGRAM_BOT_TOKEN;
-const OWNER_TG_ID = env.TELEGRAM_OWNER_ID || null;
 
 // trust proxy: rate-limit va IP detection uchun (deploymentda nginx orqasida)
 app.set("trust proxy", 1);
@@ -182,26 +171,6 @@ app.post(
         return;
       }
 
-      // 2FA: agar owner va Telegram bog'langan bo'lsa
-      const settings = await prisma.appSetting
-        .findUnique({ where: { key: "twoFactorOwner" } })
-        .catch(() => null);
-      const tfaEnabled = settings?.value === "1";
-      if (user.role === "owner" && tfaEnabled && user.telegramId) {
-        const code = await issueOtp(user.id, "login_2fa");
-        try {
-          if (notifier)
-            await notifier.notifyUser(
-              user.id,
-              `🔐 Tizimga kirish kodi: *${code}*\n\n5 daqiqa amal qiladi.`,
-            );
-        } catch (err) {
-          logger.error({ err }, "2FA send error");
-        }
-        res.json({ requires2FA: true, userId: user.id });
-        return;
-      }
-
       const token = signToken(user.id, !!remember);
 
       // Atomic: lastLoginAt update + audit
@@ -223,73 +192,6 @@ app.post(
               req.socket.remoteAddress ||
               null,
             userAgent: req.headers["user-agent"] || null,
-          },
-        }),
-      ]);
-
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          fullName: user.fullName,
-          role: user.role,
-          branchId: user.branchId,
-          branchName: user.branch?.name ?? null,
-        },
-      });
-    } catch (err) {
-      next(err);
-    }
-  },
-);
-
-// 2FA tasdiq endpointi
-app.post(
-  "/api/login/2fa",
-  loginLimiter,
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const parsed = twoFactorSchema.safeParse(req.body);
-      if (!parsed.success) return next(parsed.error);
-      const { userId, code, remember } = parsed.data;
-
-      const result = await consumeOtp(userId, "login_2fa", code);
-      if (!result.ok) {
-        const msg =
-          result.reason === "expired"
-            ? "Kod muddati o'tgan"
-            : result.reason === "exhausted"
-              ? "Juda ko'p urinish"
-              : result.reason === "missing"
-                ? "Kod topilmadi yoki muddati o'tgan"
-                : "Kod noto'g'ri";
-        res.status(result.reason === "wrong" ? 401 : 400).json({ error: msg });
-        return;
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { branch: true },
-      });
-      if (!user || !user.isActive) {
-        res.status(401).json({ error: "Foydalanuvchi topilmadi" });
-        return;
-      }
-
-      const token = signToken(user.id, !!remember);
-      await prisma.$transaction([
-        prisma.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() },
-        }),
-        prisma.auditLog.create({
-          data: {
-            userId: user.id,
-            action: "login",
-            tableName: "User",
-            recordId: user.id,
-            newValue: JSON.stringify({ success: true, via: "2fa" }),
           },
         }),
       ]);
@@ -1513,8 +1415,6 @@ app.get("/api/admins", async (req: Request, res: Response): Promise<void> => {
     branchId: a.branchId,
     branchName: a.branch?.name ?? null,
     isActive: a.isActive,
-    telegramId: a.telegramId,
-    telegramUsername: a.telegramUsername,
     permissions: parsePerms(a.permissions),
     lastLoginAt: a.lastLoginAt,
     createdAt: a.createdAt,
@@ -1629,7 +1529,7 @@ app.delete("/api/admins/:id", async (req: Request, res: Response): Promise<void>
     // Soft delete (default)
     await prisma.user.update({
       where: { id },
-      data: { isActive: false, telegramId: null, telegramUsername: null },
+      data: { isActive: false },
     });
     await prisma.auditLog.create({
       data: {
@@ -1743,37 +1643,6 @@ app.patch("/api/admins/:id", async (req: Request, res: Response): Promise<void> 
     res.status(500).json({ error: "Tahrirlashda xatolik" });
   }
 });
-
-// =====================================================================
-// Telegram link kodi yaratish — endi DB'da (OtpCode purpose=telegram_link)
-// =====================================================================
-app.post("/api/admins/:id/telegram-code", async (req: Request, res: Response): Promise<void> => {
-  const viewer = await getViewer(req);
-  if (!viewer || viewer.role !== "owner") { res.status(403).json({ error: "Forbidden" }); return; }
-  const id = Number(req.params.id);
-  if (!Number.isFinite(id) || id <= 0) {
-    res.status(400).json({ error: "Noto'g'ri ID" });
-    return;
-  }
-  const code = await issueTelegramLinkCode(id);
-  res.json({ code, expiresAt: Date.now() + 5 * 60 * 1000 });
-});
-
-app.post("/api/admins/:id/telegram-unlink", async (req: Request, res: Response): Promise<void> => {
-  const viewer = await getViewer(req);
-  if (!viewer || viewer.role !== "owner") { res.status(403).json({ error: "Forbidden" }); return; }
-  const id = Number(req.params.id);
-  await prisma.user.update({ where: { id }, data: { telegramId: null, telegramUsername: null } });
-  res.json({ ok: true });
-});
-
-// Helper for bot to use — endi DB orqali ishlaydi (sync API saqlanadi orqaga moslik uchun
-// lekin async kerak; bot tarafida yangi consumeTelegramLinkCode chaqiriladi)
-export const tokenStore = {
-  async consume(code: string): Promise<number | null> {
-    return consumeTelegramLinkCode(code);
-  },
-};
 
 // Barcha test ma'lumotlarini tozalash (faqat owner)
 app.post("/api/admin/clear-data", async (req: Request, res: Response): Promise<void> => {
@@ -2229,7 +2098,6 @@ const DEFAULT_SETTINGS: Record<string, { value: string; type: string }> = {
   logo: { value: "🎮", type: "text" }, // emoji yoki base64 image
   primaryColor: { value: "#6366f1", type: "color" },
   ownerLabel: { value: "Tarmoq egasi", type: "text" },
-  twoFactorOwner: { value: "0", type: "text" }, // "1" — yoqilgan, "0" — o'chirilgan
 };
 
 async function loadSettings(): Promise<Record<string, { value: string; type: string }>> {
@@ -2257,7 +2125,7 @@ app.patch("/api/settings", async (req: Request, res: Response): Promise<void> =>
       res.status(403).json({ error: "Faqat ega sozlamalarni o'zgartira oladi" }); return;
     }
     const body = req.body || {};
-    const allowed = ["systemName", "systemSubtitle", "logo", "primaryColor", "ownerLabel", "twoFactorOwner"];
+    const allowed = ["systemName", "systemSubtitle", "logo", "primaryColor", "ownerLabel"];
     const oldSettings = await loadSettings();
     const changes: Record<string, { from: string; to: string }> = {};
 
@@ -2744,125 +2612,13 @@ app.get("/api/health", (_req, res) => {
 });
 
 // =====================================================================
-// Telegram bot
+// In-app bildirishnomalar — barcha mutatsiyalardan keyin chaqiriladigan no-op.
+// Avval Telegram'ga yuborardi; endi frontend `/api/notifications` orqali
+// muddati o'tgan/yaqinlashayotgan qarzlarni o'zi olib chiqadi (NotificationBell).
 // =====================================================================
-let notifier: { notifyOwner: (m: string) => Promise<void>; notifyUser: (id: number, m: string) => Promise<void> } | null = null;
-
-if (BOT_TOKEN) {
-  try {
-    const { bot, notifier: n } = createBot(prisma, {
-      token: BOT_TOKEN,
-      ownerTelegramId: OWNER_TG_ID,
-      consumeLinkCode: (code) => tokenStore.consume(code),
-    });
-    notifier = n;
-    bot.start({
-      onStart: (botInfo) => console.log(`🤖 Telegram bot @${botInfo.username} ishga tushdi`),
-    }).catch((err) => console.error("Bot start error:", err));
-  } catch (err) {
-    console.error("Bot init error:", err);
-  }
-} else {
-  console.log("⚠️  TELEGRAM_BOT_TOKEN topilmadi — bot ishga tushmaydi");
+async function notifyOwnerSafe(_message: string): Promise<void> {
+  // Hozir hech narsa qilmaydi — frontend bell + sonner toast yetarli.
 }
-
-// Helper: notification yuborish (xato bo'lsa silent)
-async function notifyOwnerSafe(message: string) {
-  if (!notifier) return;
-  try { await notifier.notifyOwner(message); } catch (err) { console.error("notify error:", err); }
-}
-
-// Mutatsiya endpointlariga notification qo'shish uchun helper'lar global
-(globalThis as any).__notifyOwner = notifyOwnerSafe;
-
-// =====================================================================
-// CRON: avtomatik eslatmalar (har kuni soat 09:00 — Asia/Tashkent)
-// =====================================================================
-import cron from "node-cron";
-
-async function sendDailyReminders(): Promise<{ ownerSent: number; adminsSent: number; debtsTouched: number }> {
-  const now = new Date();
-  const startToday = new Date(now); startToday.setHours(0, 0, 0, 0);
-  const endTomorrow = new Date(startToday); endTomorrow.setDate(endTomorrow.getDate() + 2); endTomorrow.setMilliseconds(-1);
-
-  // Kechikkan + bugun + ertaga qaytarilishi kerak qarzlar
-  const debts = await prisma.debt.findMany({
-    where: {
-      isDeleted: false,
-      status: { in: ["active", "partial", "overdue"] },
-      dueDate: { lt: endTomorrow },
-    },
-    include: { client: true, branch: true },
-    orderBy: { dueDate: "asc" },
-  });
-
-  if (debts.length === 0) return { ownerSent: 0, adminsSent: 0, debtsTouched: 0 };
-
-  // Ownerga to'liq xulosa
-  const overdue = debts.filter((d) => d.dueDate < startToday);
-  const today = debts.filter((d) => d.dueDate >= startToday && d.dueDate < new Date(startToday.getTime() + 24*3600*1000));
-  const tomorrow = debts.filter((d) => d.dueDate >= new Date(startToday.getTime() + 24*3600*1000) && d.dueDate < endTomorrow);
-
-  const fmtList = (arr: typeof debts, max = 10) => arr.slice(0, max).map((d) =>
-    `• ${d.client.name} (${d.client.phone}) — ${dec(d.remainingAmount).toLocaleString("uz-UZ")} so'm, ${d.branch.name}`,
-  ).join("\n") + (arr.length > max ? `\n... yana ${arr.length - max} ta` : "");
-
-  const ownerMsg = `📊 *Kunlik eslatma — ${now.toLocaleDateString("uz-UZ")}*\n\n` +
-    (overdue.length > 0 ? `🔴 *Kechikkan: ${overdue.length} ta*\n${fmtList(overdue)}\n\n` : "") +
-    (today.length > 0 ? `🟡 *Bugun: ${today.length} ta*\n${fmtList(today)}\n\n` : "") +
-    (tomorrow.length > 0 ? `🔵 *Ertaga: ${tomorrow.length} ta*\n${fmtList(tomorrow)}` : "");
-  let ownerSent = 0;
-  if (notifier && (overdue.length || today.length || tomorrow.length)) {
-    try { await notifier.notifyOwner(ownerMsg); ownerSent = 1; } catch (err) { console.error("owner reminder err:", err); }
-  }
-
-  // Har bir filial admin'iga o'z filiali bo'yicha
-  const byBranch = new Map<number, typeof debts>();
-  for (const d of debts) {
-    const list = byBranch.get(d.branchId) ?? [];
-    list.push(d);
-    byBranch.set(d.branchId, list);
-  }
-  let adminsSent = 0;
-  for (const [branchId, list] of byBranch.entries()) {
-    const admins = await prisma.user.findMany({
-      where: { role: "admin", isActive: true, branchId, telegramId: { not: null } },
-    });
-    for (const admin of admins) {
-      const branchOverdue = list.filter((d) => d.dueDate < startToday);
-      const branchToday = list.filter((d) => d.dueDate >= startToday && d.dueDate < new Date(startToday.getTime() + 24*3600*1000));
-      const branchTomorrow = list.filter((d) => d.dueDate >= new Date(startToday.getTime() + 24*3600*1000) && d.dueDate < endTomorrow);
-      const msg = `📊 *${list[0].branch.name} — ${now.toLocaleDateString("uz-UZ")}*\n\n` +
-        (branchOverdue.length ? `🔴 Kechikkan: ${branchOverdue.length} ta\n${fmtList(branchOverdue, 5)}\n\n` : "") +
-        (branchToday.length ? `🟡 Bugun: ${branchToday.length} ta\n${fmtList(branchToday, 5)}\n\n` : "") +
-        (branchTomorrow.length ? `🔵 Ertaga: ${branchTomorrow.length} ta\n${fmtList(branchTomorrow, 5)}` : "");
-      if (msg.trim()) {
-        try {
-          await notifier?.notifyUser(admin.id, msg);
-          adminsSent++;
-          // Reminder log yozamiz (har bir qarz uchun)
-          for (const d of list) {
-            await prisma.reminder.create({
-              data: { debtId: d.id, channel: "telegram", recipient: String(admin.telegramId), status: "sent", message: "daily_reminder" },
-            }).catch(() => {});
-          }
-        } catch (err) { console.error("admin reminder err:", err); }
-      }
-    }
-  }
-
-  return { ownerSent, adminsSent, debtsTouched: debts.length };
-}
-
-// Cron: har kuni 09:00 (Asia/Tashkent)
-cron.schedule("0 9 * * *", async () => {
-  try {
-    const r = await sendDailyReminders();
-    console.log(`📨 Cron: kunlik eslatmalar yuborildi — ${r.debtsTouched} ta qarz, ${r.ownerSent} owner, ${r.adminsSent} admin`);
-  } catch (err) {
-    console.error("Cron reminder error:", err);
-  }
-}, { timezone: "Asia/Tashkent" });
 
 // =====================================================================
 // EKSPORT — Excel (qarzdorlar / to'lovlar / oylik hisobot)
@@ -3129,19 +2885,6 @@ app.get("/api/export/pdf", async (req: Request, res: Response): Promise<void> =>
   }
 });
 
-// Manual trigger endpoint — owner uchun (test va majburiy ishga tushirish)
-app.post("/api/reminders/run-now", async (req: Request, res: Response): Promise<void> => {
-  try {
-    const viewer = await getViewer(req);
-    if (!viewer || viewer.role !== "owner") { res.status(403).json({ error: "Faqat ega" }); return; }
-    const r = await sendDailyReminders();
-    res.json({ ok: true, ...r });
-  } catch (err) {
-    console.error("Manual reminder error:", err);
-    res.status(500).json({ error: "Eslatmalar yuborishda xatolik" });
-  }
-});
-
 // Catch-all — barcha route'lardan keyin (SPA fallback)
 app.get("*", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "index.html"));
@@ -3150,16 +2893,6 @@ app.get("*", (_req, res) => {
 // Global error handler — barcha throw'lar shu yerga keladi.
 // MUHIM: barcha route'lardan keyin keladi.
 app.use(errorHandler);
-
-// Davriy OTP tozalash — har 30 daqiqada eski/foydalanilgan kodlarni o'chiradi
-const OTP_PURGE_INTERVAL = 30 * 60 * 1000;
-setInterval(() => {
-  purgeExpiredOtps()
-    .then((n) => {
-      if (n > 0) logger.info({ count: n }, "OTP tozalandi");
-    })
-    .catch((err) => logger.error({ err }, "OTP tozalash xatosi"));
-}, OTP_PURGE_INTERVAL).unref();
 
 app.listen(PORT, () => {
   logger.info(

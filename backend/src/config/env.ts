@@ -35,9 +35,6 @@ const EnvSchema = z.object({
     .string()
     .default("http://localhost:5173,http://localhost:4000"),
 
-  TELEGRAM_BOT_TOKEN: z.string().default(""),
-  TELEGRAM_OWNER_ID: z.string().default(""),
-
   BACKUP_DIR: z.string().default("./backups"),
   BACKUP_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 

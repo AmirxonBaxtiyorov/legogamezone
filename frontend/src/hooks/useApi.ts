@@ -425,30 +425,6 @@ export function useResetAdminPassword() {
   });
 }
 
-export function useGenerateTelegramCode() {
-  return useMutation({
-    mutationFn: async (id: number) => {
-      const r = await api.post<{ code: string }>(`/admins/${id}/telegram-code`);
-      return r.data;
-    },
-  });
-}
-
-export function useUnlinkTelegram() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: number) => {
-      const r = await api.post(`/admins/${id}/telegram-unlink`);
-      return r.data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admins"] });
-      toast.success("Telegram aloqasi uzildi");
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
-}
-
 // ----- AUDIT -----
 export function useAuditLogs(params?: {
   limit?: number;

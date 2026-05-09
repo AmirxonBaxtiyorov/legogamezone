@@ -26,8 +26,6 @@ export interface Admin {
   role: Role;
   branchId: number | null;
   branchName?: string | null;
-  telegramId: string | null;
-  telegramUsername: string | null;
   isActive: boolean;
   lastLoginAt: string | null;
 }

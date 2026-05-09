@@ -65,7 +65,6 @@ async function main() {
     { key: "systemName", value: "Game Zone Qarz", type: "text" },
     { key: "systemSubtitle", value: "Boshqaruv tizimi", type: "text" },
     { key: "primaryColor", value: "#4f46e5", type: "color" },
-    { key: "twoFactorOwner", value: "0", type: "text" },
   ];
   for (const s of settings) {
     await prisma.appSetting.upsert({

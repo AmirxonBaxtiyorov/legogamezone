@@ -11,7 +11,6 @@ export interface AppBranding {
   systemSubtitle: string;
   primaryColor: string | null;
   logo: string | null;
-  twoFactorOwner: boolean;
 }
 
 const DEFAULTS: AppBranding = {
@@ -19,7 +18,6 @@ const DEFAULTS: AppBranding = {
   systemSubtitle: "Boshqaruv tizimi",
   primaryColor: null,
   logo: null,
-  twoFactorOwner: false,
 };
 
 const Ctx = createContext<AppBranding>(DEFAULTS);
@@ -68,7 +66,6 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
         systemSubtitle: data.systemSubtitle?.value || DEFAULTS.systemSubtitle,
         primaryColor: data.primaryColor?.value || null,
         logo: data.logo?.value || null,
-        twoFactorOwner: data.twoFactorOwner?.value === "1",
       }
     : DEFAULTS;
 

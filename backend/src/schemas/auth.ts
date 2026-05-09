@@ -6,10 +6,3 @@ export const loginSchema = z.object({
   remember: z.boolean().optional(),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
-
-export const twoFactorSchema = z.object({
-  userId: z.coerce.number().int().positive(),
-  code: z.string().trim().regex(/^\d{6}$/, "Kod 6 raqamdan iborat bo'lishi kerak"),
-  remember: z.boolean().optional(),
-});
-export type TwoFactorInput = z.infer<typeof twoFactorSchema>;
