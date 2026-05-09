@@ -1,18 +1,25 @@
-// Game Zone Qarz - Prisma schema
-// SQLite (development), PostgreSQL'ga keyinchalik o'tish oson
+// =====================================================================
+// PRODUCTION (PostgreSQL) variant — Railway uchun
+//
+// Foydalanish:
+//   1. backend/prisma/schema.prisma'ni shu fayl bilan almashtiring
+//      (yoki ushbu faylning mazmunini schema.prisma'ga ko'chiring)
+//   2. Mavjud SQLite migrations papkasini o'chiring:
+//        rm -rf backend/prisma/migrations
+//   3. Railway DATABASE_URL ga ulanib yangidan migration yaratish:
+//        DATABASE_URL="postgresql://..." npx prisma migrate dev --name init
+//   4. Deploy: Dockerfile CMD allaqachon `prisma migrate deploy` chaqiradi.
+// =====================================================================
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// =====================================================================
-// Filial — har bir game zone joylashuvi
-// =====================================================================
 model Branch {
   id        Int      @id @default(autoincrement())
   name      String   @unique
@@ -28,20 +35,18 @@ model Branch {
   auditLogs AuditLog[]
 }
 
-// =====================================================================
-// Foydalanuvchi — owner yoki admin
-// =====================================================================
 model User {
   id               Int       @id @default(autoincrement())
   username         String    @unique
   passwordHash     String
   fullName         String
-  role             String // "owner" | "admin"
-  branchId         Int? // owner uchun null, admin uchun majburiy
+  role             String
+  branchId         Int?
   branch           Branch?   @relation(fields: [branchId], references: [id])
   telegramId       String?   @unique
   telegramUsername String?
   isActive         Boolean   @default(true)
+  permissions      String?
   lastLoginAt      DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -54,47 +59,45 @@ model User {
   @@index([role])
 }
 
-// =====================================================================
-// Mijoz — qarz oluvchi shaxs (filialga biriktirilgan)
-// =====================================================================
 model Client {
-  id          Int       @id @default(autoincrement())
-  branchId    Int
-  branch      Branch    @relation(fields: [branchId], references: [id])
-  name        String
-  phone       String
-  notes       String?
-  isDeleted   Boolean   @default(false)
-  deletedAt   DateTime?
-  deletedById Int?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              Int       @id @default(autoincrement())
+  branchId        Int
+  branch          Branch    @relation(fields: [branchId], references: [id])
+  name            String
+  phone           String
+  notes           String?
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime?
+  deletedById     Int?
+  isBlacklisted   Boolean   @default(false)
+  blacklistReason String?
+  blacklistedAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   debts       Debt[]
 
-  @@unique([branchId, phone]) // bir filialda bir telefon bir marta
+  @@unique([branchId, phone])
   @@index([branchId])
   @@index([phone])
   @@index([isDeleted])
+  @@index([isBlacklisted])
 }
 
-// =====================================================================
-// Qarz — mijozga yozilgan har bir qarz yozuvi
-// =====================================================================
 model Debt {
   id              Int        @id @default(autoincrement())
   branchId        Int
   branch          Branch     @relation(fields: [branchId], references: [id])
   clientId        Int
   client          Client     @relation(fields: [clientId], references: [id])
-  itemType        String // "playstation" | "computer" | "billiard" | "other"
+  itemType        String
   itemDetails     String?
-  amount          Decimal // qarz to'liq summasi
-  paidAmount      Decimal    @default(0)
-  remainingAmount Decimal // application-side hisoblanadi (amount - paidAmount)
+  amount          Decimal    @db.Decimal(15, 2)
+  paidAmount      Decimal    @default(0) @db.Decimal(15, 2)
+  remainingAmount Decimal    @db.Decimal(15, 2)
   borrowedDate    DateTime
   dueDate         DateTime
-  status          String     @default("active") // active | partial | paid | overdue | cancelled
+  status          String     @default("active")
   notes           String?
   isDeleted       Boolean    @default(false)
   deletedAt       DateTime?
@@ -115,15 +118,12 @@ model Debt {
   @@index([createdById])
 }
 
-// =====================================================================
-// To'lov — qarzga yozilgan to'liq yoki qisman to'lov
-// =====================================================================
 model Payment {
   id           Int      @id @default(autoincrement())
   debtId       Int
   debt         Debt     @relation(fields: [debtId], references: [id])
-  amount       Decimal
-  method       String // "cash" | "card" | "transfer"
+  amount       Decimal  @db.Decimal(15, 2)
+  method       String
   paidDate     DateTime
   notes        String?
   recordedById Int
@@ -136,39 +136,33 @@ model Payment {
   @@index([recordedById])
 }
 
-// =====================================================================
-// Eslatma — telegram yoki brauzerga yuborilgan bildirishnoma logi
-// =====================================================================
 model Reminder {
   id        Int      @id @default(autoincrement())
   debtId    Int
   debt      Debt     @relation(fields: [debtId], references: [id])
-  channel   String // "telegram" | "browser"
-  recipient String // user ID yoki telegram chat id
+  channel   String
+  recipient String
   sentAt    DateTime @default(now())
-  status    String // "sent" | "failed"
+  status    String
   message   String
 
   @@index([debtId])
   @@index([sentAt])
 }
 
-// =====================================================================
-// Audit log — barcha muhim amallar yozuvi (faqat owner ko'radi)
-// =====================================================================
 model AuditLog {
   id        Int      @id @default(autoincrement())
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
-  action    String // create | update | delete | soft_delete | restore | payment | login | logout | backup
+  action    String
   tableName String
   recordId  Int
   branchId  Int?
   branch    Branch?  @relation(fields: [branchId], references: [id])
-  oldValue  String? // JSON string
-  newValue  String? // JSON string
+  oldValue  String?  @db.Text
+  newValue  String?  @db.Text
   ipAddress String?
-  userAgent String?
+  userAgent String?  @db.Text
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -176,4 +170,27 @@ model AuditLog {
   @@index([tableName, recordId])
   @@index([createdAt])
   @@index([action])
+}
+
+model AppSetting {
+  key         String   @id
+  value       String   @db.Text
+  type        String   @default("text")
+  updatedAt   DateTime @updatedAt
+  updatedById Int?
+}
+
+model OtpCode {
+  id         Int       @id @default(autoincrement())
+  userId     Int?
+  purpose    String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@index([consumedAt])
 }

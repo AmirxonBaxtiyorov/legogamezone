@@ -7,25 +7,70 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <link rel="stylesheet" href="/styles.css?v={{BUILD}}" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎮%3C/text%3E%3C/svg%3E" />
+  <script>
+    window.__GZQ_BUILD = "{{BUILD}}";
+    window.__GZQ_LOADED = false;
+    setTimeout(function () {
+      if (!window.__GZQ_LOADED) {
+        var b = document.createElement("div");
+        b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#dc2626;color:#fff;padding:14px 20px;font-family:sans-serif;font-size:14px;font-weight:700;text-align:center;line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.4)";
+        b.innerHTML = "JavaScript yuklanmadi (build " + window.__GZQ_BUILD + "). Brauzer keshini tozalang: <b>Ctrl+Shift+Delete</b> yoki <b>incognito</b> rejimda oching.";
+        document.body.appendChild(b);
+      }
+    }, 5000);
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
+  <script>
+    window.addEventListener("pageshow", function (e) {
+      if (e.persisted) window.location.reload();
+    });
+  </script>
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
   <div class="app">
+    <div id="buildBanner" style="position:fixed;top:0;right:0;z-index:50;background:rgba(99,102,241,0.95);color:#fff;padding:4px 10px;font-size:10px;font-family:monospace;border-bottom-left-radius:8px;opacity:0.7">
+      build: {{BUILD}}
+    </div>
     <!-- Header -->
     <header class="header">
       <div class="header-left">
         <div class="logo">
-          <div class="logo-icon">🎮</div>
+          <div class="logo-icon" id="brandLogo">🎮</div>
           <div class="logo-text">
-            <h1 data-i18n="appName">Game Zone Qarz</h1>
-            <span class="logo-sub" data-i18n="appSub">Boshqaruv tizimi</span>
+            <h1 id="brandName" data-i18n="appName">Game Zone Qarz</h1>
+            <span class="logo-sub" id="brandSubtitle" data-i18n="appSub">Boshqaruv tizimi</span>
           </div>
         </div>
       </div>
 
       <div class="header-right">
+        <div class="search-box" id="searchBox">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchInput" placeholder="🔍 Mijoz qidirish (ism / telefon)..." autocomplete="off" />
+          <div class="search-results" id="searchResults" hidden></div>
+        </div>
+        <select id="branchFilter" class="branch-filter" hidden></select>
+        <button class="debtors-btn" id="debtorsBtn" type="button" title="Qarzdorlar ro'yxati">
+          <span>👥</span>
+          <span class="debtors-label" data-i18n="debtors">Qarzdorlar</span>
+        </button>
+        <button class="debtors-btn" id="viewClientsBtn" type="button" title="Barcha mijozlar">
+          <span>🧑‍🤝‍🧑</span>
+          <span class="debtors-label" data-i18n="viewAllClients">Mijozlar</span>
+        </button>
+        <button class="add-debt-btn" id="addDebtBtn" type="button" title="Yangi qarz qo'shish">
+          <span class="add-debt-icon">+</span>
+          <span class="add-debt-label" data-i18n="addDebt">Yangi qarz</span>
+        </button>
         <div class="profile-switcher" id="profileSwitcher">
           <button class="profile-btn" id="profileBtn" type="button">
             <div class="profile-avatar" id="profileAvatar">?</div>
@@ -40,6 +85,23 @@
           <div class="profile-dropdown" id="profileDropdown" hidden>
             <div class="dropdown-head" data-i18n="switchProfile">Profilni almashtirish</div>
             <div class="dropdown-body" id="profileList"></div>
+            <div class="dropdown-actions" id="ownerActions" hidden>
+              <button type="button" class="dropdown-action-btn" id="settingsBtn">⚙️ <span data-i18n="settings">Sozlamalar</span></button>
+              <button type="button" class="dropdown-action-btn" id="manageBranchesBtn">🏢 <span data-i18n="manageBranches">Filiallar</span></button>
+              <button type="button" class="dropdown-action-btn" id="manageAdminsBtn">👥 <span data-i18n="manageAdmins">Adminlar</span></button>
+              <button type="button" class="dropdown-action-btn" id="manageClientsBtn">🧑‍🤝‍🧑 <span data-i18n="manageClients">Mijozlar</span></button>
+              <button type="button" class="dropdown-action-btn" id="auditLogBtn">📋 <span data-i18n="auditLogTitle2">Audit jurnali</span></button>
+              <button type="button" class="dropdown-action-btn" id="monthlyReportBtn">📊 <span data-i18n="monthlyReport">Oylik hisobot</span></button>
+              <button type="button" class="dropdown-action-btn" id="systemInfoBtn">🩺 <span data-i18n="systemInfo">Tizim holati</span></button>
+              <button type="button" class="dropdown-action-btn" id="sendRemindersBtn">📨 Eslatma yuborish (Telegram)</button>
+              <button type="button" class="dropdown-action-btn" id="exportBtn">📊 Eksport (Excel/PDF)</button>
+              <button type="button" class="dropdown-action-btn" id="backupBtn">💾 Backup yuklab olish</button>
+              <button type="button" class="dropdown-action-btn" id="restoreBtn">⏪ Backup'dan tiklash</button>
+              <button type="button" class="danger-action" id="clearDataBtn" data-i18n="clearAllData">🧹 Barcha ma'lumotlarni o'chirish</button>
+            </div>
+            <div class="dropdown-actions">
+              <button type="button" class="danger-action" id="logoutBtn">🚪 Profildan chiqish</button>
+            </div>
             <div class="dropdown-foot" data-i18n="previewNote">Auth hali yo'q — RBAC namoyishi uchun</div>
           </div>
         </div>
@@ -48,6 +110,14 @@
           <button class="lang-btn" data-lang="cyr">ЎЗ</button>
           <button class="lang-btn" data-lang="ru">RU</button>
         </div>
+        <button class="bell-btn" id="bellBtn" type="button" title="Bildirishnomalar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span class="bell-badge" id="bellBadge" hidden>0</span>
+        </button>
+        <div class="bell-dropdown" id="bellDropdown" hidden></div>
         <button class="theme-btn" id="themeBtn" title="Tema">
           <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="4"></circle>
@@ -130,32 +200,13 @@
       </button>
     </section>
 
-    <!-- Sub stats: counts -->
-    <section class="counters">
-      <div class="counter">
-        <span class="counter-value" id="branchesCount">—</span>
-        <span class="counter-label" data-i18n="branches">Filiallar</span>
+    <!-- 48 soat ichida pul talab qilinadigan qarzlar -->
+    <section class="card alert-card" id="urgentCard" hidden>
+      <div class="card-head">
+        <h3>⏰ <span data-i18n="urgentTitle">Pulni talab qilish kerak</span></h3>
+        <span class="card-sub" data-i18n="urgentSub">48 soat ichida muddati va o'tganlar</span>
       </div>
-      <div class="counter">
-        <span class="counter-value" id="usersCount">—</span>
-        <span class="counter-label" data-i18n="users">Foydalanuvchilar</span>
-      </div>
-      <div class="counter">
-        <span class="counter-value" id="clientsCount">—</span>
-        <span class="counter-label" data-i18n="clients">Mijozlar</span>
-      </div>
-      <div class="counter">
-        <span class="counter-value" id="debtsCount">—</span>
-        <span class="counter-label" data-i18n="debts">Qarzlar</span>
-      </div>
-      <div class="counter">
-        <span class="counter-value" id="paymentsCount">—</span>
-        <span class="counter-label" data-i18n="payments">To'lovlar</span>
-      </div>
-      <div class="counter">
-        <span class="counter-value" id="auditCount">—</span>
-        <span class="counter-label" data-i18n="auditEvents">Audit yozuvlari</span>
-      </div>
+      <div class="card-body" id="urgentList"></div>
     </section>
 
     <!-- Asosiy chiziqli grafik: oxirgi 30 kun -->
@@ -171,8 +222,8 @@
       </div>
     </section>
 
-    <!-- Pie/doughnut charts -->
-    <section class="three-col">
+    <!-- Pie/doughnut charts: status + payment methods -->
+    <section class="two-col">
       <div class="card">
         <div class="card-head">
           <h3 data-i18n="chartStatus">Status taqsimoti</h3>
@@ -186,6 +237,7 @@
       <div class="card">
         <div class="card-head">
           <h3 data-i18n="chartMethods">To'lov usullari</h3>
+          <span class="card-sub" data-i18n="paymentMethodsSub">bu oy bo'yicha</span>
         </div>
         <div class="card-body">
           <div class="chart-host" style="height: 240px;">
@@ -193,51 +245,15 @@
           </div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-head">
-          <h3 data-i18n="chartItems">Xizmat turlari</h3>
-        </div>
-        <div class="card-body">
-          <div class="chart-host" style="height: 240px;">
-            <canvas id="chartItems"></canvas>
-          </div>
-        </div>
-      </div>
     </section>
 
-    <!-- Bar chart: filiallar taqqoslash -->
-    <section class="card">
+    <!-- Filiallar (faqat owner ko'radi) -->
+    <section class="card" id="branchesCard">
       <div class="card-head">
-        <h3 data-i18n="chartBranches">Filiallar bar chart</h3>
-        <span class="card-sub" data-i18n="chartBranchesSub">summa bo'yicha taqqoslash</span>
+        <h3 data-i18n="branchComparison">Filiallar taqqoslash</h3>
+        <span class="card-sub" data-i18n="branchComparisonSub">qarzlar va to'lovlar bo'yicha</span>
       </div>
-      <div class="card-body">
-        <div class="chart-host" style="height: 280px;">
-          <canvas id="chartBranches"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- Two-column section: Branches + Payment methods -->
-    <section class="two-col">
-      <div class="card">
-        <div class="card-head">
-          <h3 data-i18n="branchComparison">Filiallar taqqoslash</h3>
-          <span class="card-sub" data-i18n="branchComparisonSub">qarzlar va to'lovlar bo'yicha</span>
-        </div>
-        <div class="card-body" id="branchesList"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <h3 data-i18n="paymentMethods">To'lov usullari</h3>
-          <span class="card-sub" data-i18n="paymentMethodsSub">bu oy bo'yicha</span>
-        </div>
-        <div class="card-body">
-          <div class="method-bars" id="methodBars"></div>
-          <div class="method-legend" id="methodLegend"></div>
-        </div>
-      </div>
+      <div class="card-body" id="branchesList"></div>
     </section>
 
     <!-- Status badges -->
@@ -323,7 +339,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="activityCard">
         <div class="card-head">
           <h3 data-i18n="recentActivity">Oxirgi hodisalar</h3>
           <span class="card-sub" data-i18n="recentActivitySub">audit log</span>
@@ -338,6 +354,25 @@
       <div data-i18n="footerNote">1-bosqich preview — Express API va React frontend keyingi bosqichlarda quriladi</div>
       <div class="footer-meta" id="footerMeta"></div>
     </footer>
+  </div>
+
+  <!-- Form modal: qarz / to'lov / tasdiqlash -->
+  <div class="modal-overlay" id="formOverlay" hidden>
+    <div class="modal modal-narrow" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div>
+          <h3 class="modal-title" id="formTitle">—</h3>
+          <div class="modal-sub" id="formSub"></div>
+        </div>
+        <button class="modal-close" id="formClose" aria-label="Yopish" type="button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" id="formBody"></div>
+    </div>
   </div>
 
   <!-- Modal: batafsil ma'lumot -->
@@ -356,11 +391,11 @@
         </button>
       </div>
       <div class="modal-body" id="modalBody">
-        <div class="modal-loading" data-i18n="loading">Yuklanmoqda...</div>
+        <div class="modal-loading">⏳ —</div>
       </div>
     </div>
   </div>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v={{BUILD}}"></script>
 </body>
 </html>

@@ -26,10 +26,27 @@ async function main() {
   await prisma.client.deleteMany();
   await prisma.user.deleteMany();
   await prisma.branch.deleteMany();
-  // SQLite autoincrement counter'ini reset qilish — har safar 1'dan boshlasin
-  await prisma.$executeRawUnsafe(
-    `DELETE FROM sqlite_sequence WHERE name IN ('Branch','User','Client','Debt','Payment','Reminder','AuditLog')`,
-  );
+  // Autoincrement counterlarni reset qilish (PostgreSQL: ALTER SEQUENCE; SQLite: sqlite_sequence)
+  const isSqlite = (process.env.DATABASE_URL || "").startsWith("file:");
+  if (isSqlite) {
+    try {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM sqlite_sequence WHERE name IN ('Branch','User','Client','Debt','Payment','Reminder','AuditLog')`,
+      );
+    } catch {
+      // jadval yo'q bo'lsa — ahamiyat bermaymiz
+    }
+  } else {
+    for (const table of ["Branch", "User", "Client", "Debt", "Payment", "Reminder", "AuditLog"]) {
+      try {
+        await prisma.$executeRawUnsafe(
+          `ALTER SEQUENCE "${table}_id_seq" RESTART WITH 1`,
+        );
+      } catch {
+        // sequence yo'q bo'lsa — ahamiyat bermaymiz
+      }
+    }
+  }
 
   // -----------------------------------------------------------
   // 2. Filiallar
