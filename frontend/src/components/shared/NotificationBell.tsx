@@ -222,12 +222,12 @@ export function NotificationBell() {
 
   // ----- Yangi urgent kelganda ovoz + brauzer notify -----
   useEffect(() => {
-    if (!data) return;
-    const cur = data.counts.overdue + data.counts.today;
+    if (!data || !data.counts) return;
+    const cur = (data.counts.overdue ?? 0) + (data.counts.today ?? 0);
     if (cur > prefs.lastSeenUrgentCount && prefs.lastSeenUrgentCount !== 0) {
       // Yangi urgent paydo bo'ldi
       playChime();
-      const newest = data.items[0];
+      const newest = data.items?.[0];
       if (newest) {
         maybeShowBrowserNotification(
           t("notif.urgency.overdue"),
@@ -237,7 +237,7 @@ export function NotificationBell() {
       }
     }
     prefs.setLastSeenUrgent(cur);
-  }, [data?.counts.overdue, data?.counts.today]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data?.counts?.overdue, data?.counts?.today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tashqarisiga bosilganda yopish
   useEffect(() => {
@@ -362,7 +362,7 @@ export function NotificationBell() {
               onClick={() => setTab("activity")}
               icon={<TrendingUp className="size-3.5" />}
               label={t("notif.tab.activity")}
-              count={data?.activityCounts.total ?? 0}
+              count={data?.activityCounts?.total ?? 0}
               accent="blue"
             />
             <TabBtn
