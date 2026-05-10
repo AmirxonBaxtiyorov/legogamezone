@@ -95,10 +95,21 @@ export interface AuditLogItem {
   tableName: string;
   recordId: number;
   user: string;
+  username?: string;
   userId?: number;
   branch: string | null;
+  branchId?: number | null;
+  // Boyitilgan ma'lumot (backend qo'shadi)
+  entityName?: string | null;
+  entityMeta?: Record<string, unknown>;
+  // JSON parse qilingan eski va yangi qiymatlar
+  oldData?: unknown;
+  newData?: unknown;
+  // Raw JSON stringlar (debug uchun)
   oldValue?: string | null;
   newValue?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
   createdAt: string;
 }
 

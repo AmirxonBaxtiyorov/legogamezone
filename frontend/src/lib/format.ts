@@ -35,6 +35,37 @@ export function formatRelative(date: Date | string | null | undefined): string {
   return formatDistanceToNow(d, { addSuffix: true, locale: uz });
 }
 
+/**
+ * Til-aware qisqa relative vaqt.
+ * Misol: "5 daqiqa oldin", "3 soat oldin", "in 2 days".
+ * t — i18n funksiyasi (`useT().t`).
+ */
+export function formatRelativeI18n(
+  date: Date | string | null | undefined,
+  t: (k: string, fb?: string) => string,
+): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d.getTime())) return "—";
+  const diffMs = Date.now() - d.getTime();
+  const past = diffMs >= 0;
+  const abs = Math.abs(diffMs);
+  const minutes = Math.floor(abs / 60_000);
+  const hours = Math.floor(abs / 3_600_000);
+  const days = Math.floor(abs / 86_400_000);
+
+  if (minutes < 1) return t("time.justNow");
+  if (past) {
+    if (minutes < 60) return `${minutes} ${t("time.minutesAgo")}`;
+    if (hours < 24) return `${hours} ${t("time.hoursAgo")}`;
+    return `${days} ${t("time.daysAgo")}`;
+  } else {
+    if (minutes < 60) return `${minutes} ${t("time.inMinutes")}`;
+    if (hours < 24) return `${hours} ${t("time.inHours")}`;
+    return `${days} ${t("time.inDays")}`;
+  }
+}
+
 // 2099 sanasi noma'lum sentinel
 export function isUnknownDue(date: Date | string | null | undefined): boolean {
   if (!date) return false;

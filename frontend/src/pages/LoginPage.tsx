@@ -12,10 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { LangSwitcher } from "@/components/shared/LangSwitcher";
+import { useT } from "@/lib/i18n";
 
 const loginSchema = z.object({
-  username: z.string().min(1, "Login majburiy"),
-  password: z.string().min(1, "Parol majburiy"),
+  username: z.string().min(1, "login.required.username"),
+  password: z.string().min(1, "login.required.password"),
   remember: z.boolean().optional(),
 });
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -33,6 +35,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const branding = useAppSettings();
+  const { t } = useT();
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -47,7 +50,7 @@ export function LoginPage() {
       );
       setAuth(data.token, data.user);
       navigate("/dashboard", { replace: true });
-      toast.success(`Xush kelibsiz, ${data.user.fullName}`);
+      toast.success(`${t("login.welcome")}, ${data.user.fullName}`);
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -55,14 +58,18 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen grid place-items-center p-4 bg-gradient-to-br from-background to-muted">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md space-y-3">
+        <div className="flex justify-end">
+          <LangSwitcher />
+        </div>
+        <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
             <AppBrandLogo size={48} />
             <div className="min-w-0">
               <CardTitle className="truncate">{branding.systemName}</CardTitle>
               <CardDescription className="truncate">
-                {branding.systemSubtitle || "Tizimga kirish"}
+                {branding.systemSubtitle || t("login.title")}
               </CardDescription>
             </div>
             <Lock className="size-4 text-muted-foreground ml-auto" />
@@ -71,7 +78,7 @@ export function LoginPage() {
         <CardContent>
           <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Login</Label>
+              <Label htmlFor="username">{t("login.username")}</Label>
               <Input
                 id="username"
                 autoComplete="username"
@@ -80,12 +87,12 @@ export function LoginPage() {
               />
               {loginForm.formState.errors.username && (
                 <p className="text-xs text-destructive">
-                  {loginForm.formState.errors.username.message}
+                  {t(loginForm.formState.errors.username.message ?? "", loginForm.formState.errors.username.message)}
                 </p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Parol</Label>
+              <Label htmlFor="password">{t("login.password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -94,13 +101,13 @@ export function LoginPage() {
               />
               {loginForm.formState.errors.password && (
                 <p className="text-xs text-destructive">
-                  {loginForm.formState.errors.password.message}
+                  {t(loginForm.formState.errors.password.message ?? "", loginForm.formState.errors.password.message)}
                 </p>
               )}
             </div>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <input type="checkbox" {...loginForm.register("remember")} />
-              Meni eslab qol (30 kun)
+              {t("login.remember")}
             </label>
             <Button
               type="submit"
@@ -110,11 +117,12 @@ export function LoginPage() {
               {loginForm.formState.isSubmitting && (
                 <Loader2 className="size-4 animate-spin" />
               )}
-              Kirish
+              {t("login.submit")}
             </Button>
           </form>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

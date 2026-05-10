@@ -86,9 +86,15 @@ const dec = (v: Prisma.Decimal | null | undefined): number =>
 const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
 
 // =====================================================================
-// Profillar ro'yxati (profil tanlovi uchun)
+// Profillar ro'yxati — faqat owner uchun (foydalanuvchi nomlarini sizdirmaslik)
+// Frontend bu endpointni ishlatmaydi, lekin admin paneli kerak bo'lsa, owner ko'radi.
 // =====================================================================
-app.get("/api/profiles", async (_req, res) => {
+app.get("/api/profiles", async (req, res): Promise<void> => {
+  const viewer = await getViewer(req);
+  if (!viewer || viewer.role !== "owner") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
   const users = await prisma.user.findMany({
     where: { isActive: true },
     include: { branch: true },
@@ -242,7 +248,7 @@ app.get("/api/stats", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
     if (!viewer) {
-      res.status(404).json({ error: "Profil topilmadi" });
+      res.status(401).json({ error: "Avtorizatsiya talab" });
       return;
     }
 
@@ -516,7 +522,7 @@ app.get("/api/list", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
     if (!viewer) {
-      res.status(404).json({ error: "Profil topilmadi" });
+      res.status(401).json({ error: "Avtorizatsiya talab" });
       return;
     }
 
@@ -720,7 +726,7 @@ app.get("/api/client/:id", async (req: Request, res: Response): Promise<void> =>
   try {
     const viewer = await getViewer(req);
     if (!viewer) {
-      res.status(404).json({ error: "Profil topilmadi" });
+      res.status(401).json({ error: "Avtorizatsiya talab" });
       return;
     }
 
@@ -856,7 +862,7 @@ function isUnknownDue(d: Date | null | undefined): boolean {
 app.post("/api/clients", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
 
     const { name, phone, branchId: rawBranchId, notes } = req.body ?? {};
     if (!name || !String(name).trim() || !phone || !String(phone).trim()) {
@@ -912,7 +918,7 @@ app.post("/api/clients", async (req: Request, res: Response): Promise<void> => {
 app.post("/api/debts", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
 
     const { clientId, itemType, itemDetails, amount, borrowedDate, dueDate, dueDateUnknown, notes } = req.body ?? {};
     const cid = Number(clientId);
@@ -1001,7 +1007,7 @@ app.post("/api/debts", async (req: Request, res: Response): Promise<void> => {
 app.post("/api/debts/:id/payments", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
 
     const debtId = Number(req.params.id);
     const { amount, method, paidDate, notes } = req.body ?? {};
@@ -1091,7 +1097,7 @@ app.post("/api/debts/:id/payments", async (req: Request, res: Response): Promise
 app.get("/api/debts/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
     const debtId = Number(req.params.id);
     const debt = await prisma.debt.findUnique({ where: { id: debtId }, include: { client: true } });
     if (!debt) { res.status(404).json({ error: "Qarz topilmadi" }); return; }
@@ -1114,7 +1120,7 @@ app.get("/api/debts/:id", async (req: Request, res: Response): Promise<void> => 
 app.patch("/api/debts/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
 
     const debtId = Number(req.params.id);
     const { itemType, itemDetails, amount, borrowedDate, dueDate, dueDateUnknown, notes } = req.body ?? {};
@@ -1188,7 +1194,7 @@ app.patch("/api/debts/:id", async (req: Request, res: Response): Promise<void> =
 app.post("/api/debts/:id/soft-delete", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
 
     const debtId = Number(req.params.id);
     const debt = await prisma.debt.findUnique({ where: { id: debtId } });
@@ -1231,7 +1237,7 @@ app.post("/api/debts/:id/soft-delete", async (req: Request, res: Response): Prom
 app.delete("/api/debts/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
     if (viewer.role !== "owner") {
       res.status(403).json({ error: "Faqat ega to'liq o'chira oladi" }); return;
     }
@@ -1648,7 +1654,7 @@ app.patch("/api/admins/:id", async (req: Request, res: Response): Promise<void> 
 app.post("/api/admin/clear-data", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
     if (viewer.role !== "owner") {
       res.status(403).json({ error: "Faqat ega tozalashi mumkin" }); return;
     }
@@ -1692,12 +1698,22 @@ app.post("/api/admin/clear-data", async (req: Request, res: Response): Promise<v
 });
 
 // =====================================================================
-// Bildirishnomalar — qo'ng'iroqcha uchun (48h ichida muddati / overdue / bugun)
+// Bildirishnomalar — aqlli, ko'p kategoriyali
+//   urgent: muddati tugagan/yaqin (overdue/today/soon)
+//   activity: oxirgi 24 soat — yangi qarz, to'lov, mijoz (kim qildi/qancha)
+//   stale: 30+ kundan beri to'lov yo'q va qoldiq mavjud (eslatma)
+//   large: katta qoldiq qarzdorlar (500k+) — diqqat kerak
+//
+//   Admin faqat o'z filiali. Owner barchasini (yoki ?branchId= bilan filterlay oladi).
+//   Eng yangi audit logdagi `dueDate>=now-N` davriy hisobotlar bilan birga ishlatiladi.
 // =====================================================================
+const STALE_DAYS = 30;
+const LARGE_THRESHOLD = 500_000;
+
 app.get("/api/notifications", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
 
     const requestedBranchId = req.query.branchId ? Number(req.query.branchId) : null;
     const branchFilter = viewer.role === "admin" && viewer.branchId
@@ -1708,26 +1724,29 @@ app.get("/api/notifications", async (req: Request, res: Response): Promise<void>
     const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
     const endOfToday = new Date(now); endOfToday.setHours(23, 59, 59, 999);
     const in48h = new Date(now); in48h.setHours(in48h.getHours() + 48);
+    const ago24h = new Date(now); ago24h.setHours(ago24h.getHours() - 24);
+    const agoStaleDays = new Date(now); agoStaleDays.setDate(agoStaleDays.getDate() - STALE_DAYS);
 
-    // 48 soat ichida muddati tugaydigan VA muddati o'tgan
-    const debts = await prisma.debt.findMany({
+    // ----- 1. URGENT — muddati tugagan/yaqin -----
+    const urgentDebts = await prisma.debt.findMany({
       where: {
         isDeleted: false,
         status: { notIn: ["paid", "cancelled"] },
         OR: [
-          { dueDate: { lte: in48h, gte: startOfToday } }, // bugun-48h
-          { dueDate: { lt: startOfToday } }, // o'tgan
+          { dueDate: { lte: in48h, gte: startOfToday } },
+          { dueDate: { lt: startOfToday } },
         ],
         ...branchFilter,
       },
-      include: { client: true, branch: true },
+      include: { client: true, branch: true, createdBy: true },
       orderBy: { dueDate: "asc" },
     });
 
-    const items = debts.map((d) => {
+    const items = urgentDebts.map((d) => {
       const isOverdue = d.dueDate < startOfToday;
       const isToday = d.dueDate >= startOfToday && d.dueDate <= endOfToday;
       const hoursUntil = Math.round((d.dueDate.getTime() - now.getTime()) / (60 * 60 * 1000));
+      const isUnknown = d.dueDate.getUTCFullYear() >= 2099;
       return {
         id: d.id,
         clientId: d.clientId,
@@ -1739,19 +1758,190 @@ app.get("/api/notifications", async (req: Request, res: Response): Promise<void>
         remaining: dec(d.remainingAmount),
         amount: dec(d.amount),
         dueDate: d.dueDate,
-        urgency: isOverdue ? "overdue" : isToday ? "today" : "soon",
+        // Eslatma: qachon yozilgan
+        createdAt: d.createdAt,
+        createdBy: d.createdBy.fullName,
+        urgency: isUnknown ? "soon" : isOverdue ? "overdue" : isToday ? "today" : "soon",
         hoursUntil,
+        notes: d.notes,
       };
+    }).filter((it) => {
+      // dueDate noma'lum (2099) bo'lsa urgent ro'yxatga qo'shilmaydi
+      const dt = new Date(it.dueDate);
+      return dt.getUTCFullYear() < 2099;
     });
+
+    // ----- 2. ACTIVITY — oxirgi 24 soat -----
+    const [recentDebts, recentPayments, recentClients] = await Promise.all([
+      prisma.debt.findMany({
+        where: {
+          isDeleted: false,
+          createdAt: { gte: ago24h },
+          ...branchFilter,
+        },
+        include: { client: true, branch: true, createdBy: true },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+      prisma.payment.findMany({
+        where: {
+          createdAt: { gte: ago24h },
+          ...(branchFilter.branchId ? { debt: { branchId: branchFilter.branchId } } : {}),
+        },
+        include: { debt: { include: { client: true, branch: true } }, recordedBy: true },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+      prisma.client.findMany({
+        where: {
+          createdAt: { gte: ago24h },
+          isDeleted: false,
+          ...branchFilter,
+        },
+        include: { branch: true },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+    ]);
+
+    const activity = [
+      ...recentDebts.map((d) => ({
+        kind: "debt_created" as const,
+        id: d.id,
+        clientId: d.clientId,
+        client: d.client.name,
+        clientPhone: d.client.phone,
+        branch: d.branch.name,
+        amount: dec(d.amount),
+        itemType: d.itemType,
+        itemDetails: d.itemDetails,
+        by: d.createdBy.fullName,
+        byId: d.createdById,
+        createdAt: d.createdAt,
+      })),
+      ...recentPayments.map((p) => ({
+        kind: "payment_received" as const,
+        id: p.id,
+        clientId: p.debt.clientId,
+        client: p.debt.client.name,
+        clientPhone: p.debt.client.phone,
+        branch: p.debt.branch.name,
+        amount: dec(p.amount),
+        method: p.method,
+        debtId: p.debtId,
+        by: p.recordedBy.fullName,
+        byId: p.recordedById,
+        createdAt: p.createdAt,
+        paidDate: p.paidDate,
+      })),
+      ...recentClients.map((c) => ({
+        kind: "client_added" as const,
+        id: c.id,
+        clientId: c.id,
+        client: c.name,
+        clientPhone: c.phone,
+        branch: c.branch.name,
+        by: null as string | null,
+        byId: null as number | null,
+        createdAt: c.createdAt,
+      })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // ----- 3. STALE — 30+ kundan to'lovsiz, qoldiq bor -----
+    const staleDebts = await prisma.debt.findMany({
+      where: {
+        isDeleted: false,
+        status: { in: ["active", "partial", "overdue"] },
+        ...branchFilter,
+        // To'lov bo'lmagan (paymentlar yo'q yoki eng oxirgisi 30+ kun avval)
+        OR: [
+          { payments: { none: {} }, createdAt: { lt: agoStaleDays } },
+          { payments: { every: { paidDate: { lt: agoStaleDays } } } },
+        ],
+      },
+      include: { client: true, branch: true, payments: { orderBy: { paidDate: "desc" }, take: 1 }, createdBy: true },
+      orderBy: { createdAt: "asc" },
+      take: 50,
+    });
+
+    const stale = staleDebts.map((d) => {
+      const last = d.payments[0];
+      const sinceMs = (last ? last.paidDate.getTime() : d.createdAt.getTime());
+      const days = Math.floor((now.getTime() - sinceMs) / 86400000);
+      return {
+        id: d.id,
+        clientId: d.clientId,
+        client: d.client.name,
+        clientPhone: d.client.phone,
+        branch: d.branch.name,
+        remaining: dec(d.remainingAmount),
+        amount: dec(d.amount),
+        itemType: d.itemType,
+        itemDetails: d.itemDetails,
+        lastActivityAt: last ? last.paidDate : d.createdAt,
+        daysSince: days,
+        createdAt: d.createdAt,
+        createdBy: d.createdBy.fullName,
+      };
+    }).filter((it) => it.daysSince >= STALE_DAYS);
+
+    // ----- 4. LARGE — katta qoldiq qarzdorlar -----
+    const largeDebts = await prisma.debt.findMany({
+      where: {
+        isDeleted: false,
+        status: { notIn: ["paid", "cancelled"] },
+        remainingAmount: { gte: LARGE_THRESHOLD },
+        ...branchFilter,
+      },
+      include: { client: true, branch: true, createdBy: true },
+      orderBy: { remainingAmount: "desc" },
+      take: 30,
+    });
+
+    const large = largeDebts.map((d) => ({
+      id: d.id,
+      clientId: d.clientId,
+      client: d.client.name,
+      clientPhone: d.client.phone,
+      branch: d.branch.name,
+      remaining: dec(d.remainingAmount),
+      amount: dec(d.amount),
+      itemType: d.itemType,
+      itemDetails: d.itemDetails,
+      dueDate: d.dueDate,
+      createdAt: d.createdAt,
+      createdBy: d.createdBy.fullName,
+    }));
 
     res.json({
       generatedAt: new Date().toISOString(),
+      // ----- 1. URGENT (eski format saqlanadi backwards-compat uchun) -----
       items,
       counts: {
         total: items.length,
         overdue: items.filter((i) => i.urgency === "overdue").length,
         today: items.filter((i) => i.urgency === "today").length,
         soon: items.filter((i) => i.urgency === "soon").length,
+      },
+      // ----- 2. Yangi: ACTIVITY -----
+      activity,
+      activityCounts: {
+        total: activity.length,
+        debts: recentDebts.length,
+        payments: recentPayments.length,
+        clients: recentClients.length,
+        paymentsAmount: sum(recentPayments.map((p) => dec(p.amount))),
+        debtsAmount: sum(recentDebts.map((d) => dec(d.amount))),
+      },
+      // ----- 3. STALE -----
+      stale,
+      staleCount: stale.length,
+      // ----- 4. LARGE -----
+      large,
+      largeCount: large.length,
+      thresholds: {
+        staleDays: STALE_DAYS,
+        large: LARGE_THRESHOLD,
       },
     });
   } catch (err) {
@@ -1762,6 +1952,8 @@ app.get("/api/notifications", async (req: Request, res: Response): Promise<void>
 
 // =====================================================================
 // Audit log so'rovi (owner only) — sana, foydalanuvchi, filial bo'yicha
+// Boyitilgan: tegishli yozuvlarning hozirgi nomi (mijoz, qarz, to'lov, va h.k.)
+// JSON oldValue/newValue parse qilib alohida obyekt sifatida yuboriladi.
 // =====================================================================
 app.get("/api/audit-logs", async (req: Request, res: Response): Promise<void> => {
   try {
@@ -1775,6 +1967,7 @@ app.get("/api/audit-logs", async (req: Request, res: Response): Promise<void> =>
     const branchId = req.query.branchId ? Number(req.query.branchId) : null;
     const action = req.query.action ? String(req.query.action) : null;
     const tableName = req.query.tableName ? String(req.query.tableName) : null;
+    const limit = Math.min(Number(req.query.limit) || 500, 1000);
 
     const where: Prisma.AuditLogWhereInput = {};
     if (from || to) {
@@ -1795,23 +1988,97 @@ app.get("/api/audit-logs", async (req: Request, res: Response): Promise<void> =>
       where,
       include: { user: true, branch: true },
       orderBy: { createdAt: "desc" },
-      take: 500,
+      take: limit,
     });
 
-    res.json(logs.map((l) => ({
-      id: l.id,
-      action: l.action,
-      tableName: l.tableName,
-      recordId: l.recordId,
-      user: l.user.fullName,
-      userId: l.userId,
-      branch: l.branch?.name ?? null,
-      branchId: l.branchId,
-      oldValue: l.oldValue,
-      newValue: l.newValue,
-      ipAddress: l.ipAddress,
-      createdAt: l.createdAt,
-    })));
+    // Tegishli yozuvlarning nomlarini bir bor olib kelamiz (N+1 qochirish)
+    const collectIds = (table: string) =>
+      Array.from(new Set(logs.filter((l) => l.tableName === table).map((l) => l.recordId)));
+
+    const [clients, debts, payments, branches, users] = await Promise.all([
+      prisma.client.findMany({
+        where: { id: { in: collectIds("Client") } },
+        select: { id: true, name: true, phone: true, branchId: true },
+      }),
+      prisma.debt.findMany({
+        where: { id: { in: collectIds("Debt") } },
+        select: { id: true, amount: true, itemType: true, itemDetails: true, clientId: true, client: { select: { name: true, phone: true } } },
+      }),
+      prisma.payment.findMany({
+        where: { id: { in: collectIds("Payment") } },
+        select: { id: true, amount: true, method: true, debtId: true, debt: { select: { client: { select: { name: true, phone: true } } } } },
+      }),
+      prisma.branch.findMany({
+        where: { id: { in: collectIds("Branch") } },
+        select: { id: true, name: true },
+      }),
+      prisma.user.findMany({
+        where: { id: { in: collectIds("User") } },
+        select: { id: true, fullName: true, username: true, role: true },
+      }),
+    ]);
+
+    const clientMap = new Map(clients.map((c) => [c.id, c]));
+    const debtMap = new Map(debts.map((d) => [d.id, d]));
+    const paymentMap = new Map(payments.map((p) => [p.id, p]));
+    const branchMap = new Map(branches.map((b) => [b.id, b]));
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    const safeParse = (s: string | null | undefined): unknown => {
+      if (!s) return null;
+      try { return JSON.parse(s); } catch { return s; }
+    };
+
+    res.json(logs.map((l) => {
+      let entityName: string | null = null;
+      let entityMeta: Record<string, unknown> = {};
+      if (l.tableName === "Client") {
+        const c = clientMap.get(l.recordId);
+        if (c) { entityName = c.name; entityMeta = { phone: c.phone, branchId: c.branchId }; }
+      } else if (l.tableName === "Debt") {
+        const d = debtMap.get(l.recordId);
+        if (d) {
+          entityName = d.client?.name ?? null;
+          entityMeta = { amount: Number(d.amount.toString()), itemType: d.itemType, itemDetails: d.itemDetails, phone: d.client?.phone ?? null };
+        }
+      } else if (l.tableName === "Payment") {
+        const p = paymentMap.get(l.recordId);
+        if (p) {
+          entityName = p.debt?.client?.name ?? null;
+          entityMeta = { amount: Number(p.amount.toString()), method: p.method, debtId: p.debtId, phone: p.debt?.client?.phone ?? null };
+        }
+      } else if (l.tableName === "Branch") {
+        const b = branchMap.get(l.recordId);
+        if (b) entityName = b.name;
+      } else if (l.tableName === "User") {
+        const u = userMap.get(l.recordId);
+        if (u) { entityName = u.fullName; entityMeta = { username: u.username, role: u.role }; }
+      }
+
+      return {
+        id: l.id,
+        action: l.action,
+        tableName: l.tableName,
+        recordId: l.recordId,
+        user: l.user.fullName,
+        username: l.user.username,
+        userId: l.userId,
+        branch: l.branch?.name ?? null,
+        branchId: l.branchId,
+        // Boyitilgan: tegishli yozuvning hozirgi nomi va metadata
+        entityName,
+        entityMeta,
+        // JSON parse qilingan
+        oldData: safeParse(l.oldValue),
+        newData: safeParse(l.newValue),
+        // Raw — debug uchun ham qoldiramiz
+        oldValue: l.oldValue,
+        newValue: l.newValue,
+        ipAddress: l.ipAddress,
+        userAgent: l.userAgent,
+        createdAt: l.createdAt,
+      };
+    }));
   } catch (err) {
     console.error("Audit logs error:", err);
     res.status(500).json({ error: "Audit log olishda xatolik" });
@@ -2025,7 +2292,7 @@ app.get("/api/reports/range", async (req: Request, res: Response): Promise<void>
 app.get("/api/debtors", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
 
     const requestedBranchId = req.query.branchId ? Number(req.query.branchId) : null;
     const branchFilter = viewer.role === "admin" && viewer.branchId
@@ -2170,7 +2437,7 @@ app.patch("/api/settings", async (req: Request, res: Response): Promise<void> =>
 app.patch("/api/clients/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
 
     const id = Number(req.params.id);
     const { name, phone, notes } = req.body ?? {};
@@ -2221,7 +2488,7 @@ app.patch("/api/clients/:id", async (req: Request, res: Response): Promise<void>
 app.post("/api/clients/:id/soft-delete", async (req: Request, res: Response): Promise<void> => {
   try {
     const viewer = await getViewer(req);
-    if (!viewer) { res.status(401).json({ error: "Profil topilmadi" }); return; }
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
     const id = Number(req.params.id);
     const client = await prisma.client.findUnique({ where: { id } });
     if (!client) { res.status(404).json({ error: "Mijoz topilmadi" }); return; }
@@ -2461,6 +2728,151 @@ app.post("/api/restore", express.raw({ type: "application/octet-stream", limit: 
   } catch (err) {
     console.error("Restore error:", err);
     if (!res.headersSent) res.status(500).json({ error: "Restore xatoligi" });
+  }
+});
+
+// =====================================================================
+// SNAPSHOT — to'liq JSON dump (DB-agnostik, owner only)
+// Server o'chgan paytda ham qarzdorlar ma'lumotlari saqlanishi uchun.
+// Faylni yuklab olib, lokal kompyuterda saqlasa bo'ladi.
+// =====================================================================
+app.get("/api/backup/snapshot", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const viewer = await getViewer(req);
+    if (!viewer || viewer.role !== "owner") {
+      res.status(403).json({ error: "Faqat ega snapshot ola oladi" });
+      return;
+    }
+
+    const [branches, users, clients, debts, payments, settings] = await Promise.all([
+      prisma.branch.findMany({ orderBy: { id: "asc" } }),
+      prisma.user.findMany({
+        select: {
+          id: true, username: true, fullName: true, role: true, branchId: true,
+          isActive: true, permissions: true, lastLoginAt: true, createdAt: true, updatedAt: true,
+        },
+        orderBy: { id: "asc" },
+      }),
+      prisma.client.findMany({ orderBy: { id: "asc" } }),
+      prisma.debt.findMany({ orderBy: { id: "asc" } }),
+      prisma.payment.findMany({ orderBy: { id: "asc" } }),
+      prisma.appSetting.findMany(),
+    ]);
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const filename = `gamezone-snapshot-${stamp}.json`;
+
+    // Decimal -> string (JSON serializatsiya muammolarini oldini olish)
+    const normalizeDebt = (d: typeof debts[number]) => ({
+      ...d,
+      amount: d.amount.toString(),
+      paidAmount: d.paidAmount.toString(),
+      remainingAmount: d.remainingAmount.toString(),
+    });
+    const normalizePayment = (p: typeof payments[number]) => ({ ...p, amount: p.amount.toString() });
+
+    const snapshot = {
+      meta: {
+        generatedAt: new Date().toISOString(),
+        generatedBy: { id: viewer.id, username: viewer.username, fullName: viewer.fullName },
+        version: 1,
+        counts: {
+          branches: branches.length,
+          users: users.length,
+          clients: clients.length,
+          debts: debts.length,
+          payments: payments.length,
+        },
+      },
+      branches,
+      users, // passwordHash chiqmaydi (select bilan filterlab oldik)
+      clients,
+      debts: debts.map(normalizeDebt),
+      payments: payments.map(normalizePayment),
+      settings,
+    };
+
+    await prisma.auditLog.create({
+      data: {
+        userId: viewer.id,
+        action: "backup",
+        tableName: "Database",
+        recordId: 0,
+        newValue: JSON.stringify({ format: "json", filename, counts: snapshot.meta.counts }),
+      },
+    }).catch(() => {});
+
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(JSON.stringify(snapshot, null, 2));
+  } catch (err) {
+    console.error("Snapshot error:", err);
+    if (!res.headersSent) res.status(500).json({ error: "Snapshot olishda xatolik" });
+  }
+});
+
+// =====================================================================
+// PUBLIC SNAPSHOT — autentifikatsiya talab qilmaydi, faqat read-only,
+// qarzdorlar ro'yxati. Front-end "offline mode" uchun keshlay olishi mumkin.
+// (Token hali bor, lekin server qisman buzilgan — local cache uchun.)
+// =====================================================================
+app.get("/api/backup/debtors", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const viewer = await getViewer(req);
+    if (!viewer) { res.status(401).json({ error: "Avtorizatsiya talab" }); return; }
+
+    const branchFilter = viewer.role === "admin" && viewer.branchId
+      ? { branchId: viewer.branchId }
+      : {};
+
+    const clients = await prisma.client.findMany({
+      where: { isDeleted: false, ...branchFilter },
+      include: {
+        branch: { select: { id: true, name: true } },
+        debts: {
+          where: { isDeleted: false },
+          select: {
+            id: true, amount: true, paidAmount: true, remainingAmount: true,
+            status: true, itemType: true, itemDetails: true,
+            borrowedDate: true, dueDate: true,
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const items = clients
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        notes: c.notes,
+        branchId: c.branchId,
+        branchName: c.branch.name,
+        isBlacklisted: c.isBlacklisted,
+        debts: c.debts.map((d) => ({
+          id: d.id,
+          amount: d.amount.toString(),
+          paidAmount: d.paidAmount.toString(),
+          remainingAmount: d.remainingAmount.toString(),
+          status: d.status,
+          itemType: d.itemType,
+          itemDetails: d.itemDetails,
+          borrowedDate: d.borrowedDate,
+          dueDate: d.dueDate,
+        })),
+        totalRemaining: c.debts.reduce((acc, d) => acc + Number(d.remainingAmount.toString()), 0),
+      }))
+      .filter((c) => c.totalRemaining > 0);
+
+    res.json({
+      generatedAt: new Date().toISOString(),
+      total: items.length,
+      items,
+    });
+  } catch (err) {
+    console.error("Debtors backup error:", err);
+    res.status(500).json({ error: "Olishda xatolik" });
   }
 });
 
@@ -2885,7 +3297,10 @@ app.get("/api/export/pdf", async (req: Request, res: Response): Promise<void> =>
   }
 });
 
-// Catch-all — barcha route'lardan keyin (SPA fallback)
+// /api/* uchun aniqlanmagan route'lar — JSON 404 (SPA fallbackga tushmasin)
+app.use("/api", notFoundHandler);
+
+// Catch-all — barcha route'lardan keyin (SPA fallback, faqat HTML so'rovlar uchun)
 app.get("*", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });

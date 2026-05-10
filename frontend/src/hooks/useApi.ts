@@ -417,7 +417,8 @@ export function useDeleteAdmin() {
 export function useResetAdminPassword() {
   return useMutation({
     mutationFn: async ({ id, newPassword }: { id: number; newPassword: string }) => {
-      const r = await api.post(`/admins/${id}/reset-password`, { newPassword });
+      // Backend `password` field kutadi
+      const r = await api.post(`/admins/${id}/reset-password`, { password: newPassword });
       return r.data;
     },
     onSuccess: () => toast.success("Parol yangilandi"),
@@ -428,9 +429,12 @@ export function useResetAdminPassword() {
 // ----- AUDIT -----
 export function useAuditLogs(params?: {
   limit?: number;
-  offset?: number;
   action?: string;
   tableName?: string;
+  userId?: number;
+  branchId?: number;
+  from?: string;
+  to?: string;
 }) {
   return useQuery({
     queryKey: ["audit", params],

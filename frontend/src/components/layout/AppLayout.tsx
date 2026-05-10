@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { refreshDebtorsCache } from "@/lib/offline-cache";
 import {
   LayoutDashboard,
   Users,
@@ -27,23 +28,26 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { GlobalSearch } from "@/components/shared/GlobalSearch";
 import { NotificationBell } from "@/components/shared/NotificationBell";
+import { LangSwitcher } from "@/components/shared/LangSwitcher";
+import { useT } from "@/lib/i18n";
 
 const navItems = [
-  { to: "/dashboard", label: "Boshqaruv paneli", icon: LayoutDashboard },
-  { to: "/clients", label: "Mijozlar", icon: Users },
-  { to: "/debts", label: "Qarzlar", icon: CreditCard },
-  { to: "/payments", label: "To'lovlar", icon: Wallet },
-  { to: "/reports", label: "Hisobotlar", icon: FileText, ownerOnly: true },
-  { to: "/audit", label: "Audit log", icon: History, ownerOnly: true },
-  { to: "/branches", label: "Filiallar", icon: Building2, ownerOnly: true },
-  { to: "/admins", label: "Adminlar", icon: ShieldCheck, ownerOnly: true },
-  { to: "/settings", label: "Sozlamalar", icon: Settings, ownerOnly: true },
+  { to: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { to: "/clients", labelKey: "nav.clients", icon: Users },
+  { to: "/debts", labelKey: "nav.debts", icon: CreditCard },
+  { to: "/payments", labelKey: "nav.payments", icon: Wallet },
+  { to: "/reports", labelKey: "nav.reports", icon: FileText, ownerOnly: true },
+  { to: "/audit", labelKey: "nav.audit", icon: History, ownerOnly: true },
+  { to: "/branches", labelKey: "nav.branches", icon: Building2, ownerOnly: true },
+  { to: "/admins", labelKey: "nav.admins", icon: ShieldCheck, ownerOnly: true },
+  { to: "/settings", labelKey: "nav.settings", icon: Settings, ownerOnly: true },
 ];
 
 export function AppLayout() {
   const { user, logout } = useAuthStore();
   const { theme, setTheme } = useTheme();
   const branding = useAppSettings();
+  const { t } = useT();
   const navigate = useNavigate();
   const isOwner = user?.role === "owner";
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -54,9 +58,20 @@ export function AppLayout() {
     } finally {
       logout();
       navigate("/login", { replace: true });
-      toast.success("Tizimdan chiqdingiz");
+      toast.success(t("header.logout"));
     }
   };
+
+  // Login bo'lgach, qarzdorlar keshini fonda yangilab qo'yamiz
+  // (server o'chsa ham — keshdan ko'rsatish uchun)
+  useEffect(() => {
+    if (!user) return;
+    refreshDebtorsCache().catch(() => {});
+    const id = setInterval(() => {
+      refreshDebtorsCache().catch(() => {});
+    }, 5 * 60 * 1000); // har 5 daqiqada
+    return () => clearInterval(id);
+  }, [user?.id]);
 
   const cycleTheme = () => {
     const next = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
@@ -101,7 +116,7 @@ export function AppLayout() {
               }
             >
               <Icon className="size-4" />
-              {it.label}
+              {t(it.labelKey)}
             </NavLink>
           );
         })}
@@ -110,16 +125,19 @@ export function AppLayout() {
         <div className="text-xs">
           <div className="font-medium">{user?.fullName}</div>
           <div className="text-muted-foreground">
-            {isOwner ? "Tarmoq egasi" : `Admin · ${user?.branchName ?? "—"}`}
+            {isOwner
+              ? t("header.role.owner")
+              : `${t("header.role.admin")} · ${user?.branchName ?? "—"}`}
           </div>
         </div>
+        <LangSwitcher />
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={cycleTheme} className="flex-1" title="Tema">
+          <Button variant="outline" size="sm" onClick={cycleTheme} className="flex-1" title={t("header.theme")}>
             <ThemeIcon className="size-4" />
           </Button>
           <Button variant="outline" size="sm" onClick={handleLogout} className="flex-1">
             <LogOut className="size-4" />
-            <span className="hidden sm:inline">Chiqish</span>
+            <span className="hidden sm:inline">{t("header.logout")}</span>
           </Button>
         </div>
       </div>
@@ -168,12 +186,15 @@ export function AppLayout() {
             <GlobalSearch />
           </div>
           <NotificationBell />
+          <div className="hidden sm:block">
+            <LangSwitcher compact />
+          </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={cycleTheme}
             className="hidden md:inline-flex"
-            title="Tema"
+            title={t("header.theme")}
           >
             <ThemeIcon className="size-4" />
           </Button>
