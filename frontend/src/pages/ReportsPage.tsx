@@ -14,7 +14,7 @@ import { toast } from "sonner";
 
 import { useRangeReport } from "@/hooks/useApi";
 import { useBranchFilterStore } from "@/store/branchFilter";
-import { useAuthStore } from "@/store/auth";
+import { api, getErrorMessage } from "@/lib/api";
 import { formatMoney, formatDate } from "@/lib/format";
 
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -64,7 +64,6 @@ function endOfDay(d: Date): Date {
 
 export function ReportsPage() {
   const branchId = useBranchFilterStore((s) => s.branchId);
-  const token = useAuthStore((s) => s.token);
 
   // Default: bu oy
   const initialFrom = (() => {
@@ -91,24 +90,29 @@ export function ReportsPage() {
     format: "excel" | "pdf",
   ) => {
     try {
-      const params = new URLSearchParams();
-      params.set("kind", kind);
-      if (branchId) params.set("branchId", String(branchId));
-      // Backend export: from/to YYYY-MM-DD format kutadi
-      if (from) params.set("from", from.slice(0, 10));
-      if (to) params.set("to", to.slice(0, 10));
-      const url = `/api/export/${format}?${params}`;
-      const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!r.ok) throw new Error("Eksport xatosi");
-      const blob = await r.blob();
+      // axios `api` instance ishlatamiz: VITE_API_URL ga o'zi qo'yiladi
+      // (legogamezone.uz emas, api.legogamezone.uz ga boradi) va JWT header
+      // interceptor orqali avtomatik qo'shiladi.
+      const r = await api.get(`/export/${format}`, {
+        responseType: "blob",
+        params: {
+          kind,
+          ...(branchId ? { branchId } : {}),
+          ...(from ? { from: from.slice(0, 10) } : {}),
+          ...(to ? { to: to.slice(0, 10) } : {}),
+        },
+      });
+      const blob = r.data as Blob;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `gamezone-${kind}-${new Date().toISOString().slice(0, 10)}.${format === "excel" ? "xlsx" : "pdf"}`;
+      a.download = `gamezone-${kind}-${new Date().toISOString().slice(0, 10)}.${
+        format === "excel" ? "xlsx" : "pdf"
+      }`;
       a.click();
       URL.revokeObjectURL(a.href);
       toast.success("Yuklab olindi");
     } catch (err) {
-      toast.error(`Eksport xatosi: ${(err as Error).message}`);
+      toast.error(`Eksport xatosi: ${getErrorMessage(err)}`);
     }
   };
 
