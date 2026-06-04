@@ -757,6 +757,38 @@ export const dict: Record<string, Dict> = {
     ru: "Дата оплаты",
     en: "Payment date",
   },
+
+  // ---------- Server to'lovi eslatmasi ----------
+  "serverPayment.reminder.overdue": {
+    "uz-Latn": "Server to'lovi muddati o'tgan! {date} ({days} kun oldin)",
+    "uz-Cyrl": "Сервер тўлови муддати ўтган! {date} ({days} кун oldin)",
+    ru: "Срок оплаты сервера прошёл! {date} ({days} дн. назад)",
+    en: "Server payment is overdue! {date} ({days} days ago)",
+  },
+  "serverPayment.reminder.today": {
+    "uz-Latn": "Bugun server to'lovi kuni!",
+    "uz-Cyrl": "Бугун сервер тўлови куни!",
+    ru: "Сегодня день оплаты сервера!",
+    en: "Today is the server payment day!",
+  },
+  "serverPayment.reminder.soon": {
+    "uz-Latn": "Server to'loviga {days} kun qoldi ({date})",
+    "uz-Cyrl": "Сервер тўловига {days} кун qoldi ({date})",
+    ru: "До оплаты сервера {days} дн. ({date})",
+    en: "{days} days until server payment ({date})",
+  },
+  "serverPayment.reminder.upcoming": {
+    "uz-Latn": "Server to'lov kuni: {date} ({days} kun qoldi)",
+    "uz-Cyrl": "Сервер тўлов kuni: {date} ({days} кун qoldi)",
+    ru: "День оплаты сервера: {date} (осталось {days} дн.)",
+    en: "Server payment date: {date} ({days} days left)",
+  },
+  "serverPayment.reminder.title": {
+    "uz-Latn": "Server to'lovi eslatmasi",
+    "uz-Cyrl": "Сервер тўлови eslatmasi",
+    ru: "Напоминание об оплате сервера",
+    en: "Server payment reminder",
+  },
 };
 
 interface LangState {

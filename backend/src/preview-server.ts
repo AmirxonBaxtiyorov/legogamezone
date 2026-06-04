@@ -1913,6 +1913,29 @@ app.get("/api/notifications", async (req: Request, res: Response): Promise<void>
       createdBy: d.createdBy.fullName,
     }));
 
+    // ----- 5. SERVER TO'LOVI eslatmasi (barcha foydalanuvchilar uchun) -----
+    const appSettings = await loadSettings();
+    const serverPaymentDateRaw = appSettings.serverPaymentDate?.value?.trim() || "";
+    let serverPayment: {
+      paymentDate: string;
+      daysUntil: number;
+      urgency: "overdue" | "today" | "soon" | "upcoming";
+    } | null = null;
+    if (serverPaymentDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(serverPaymentDateRaw)) {
+      const paymentStart = new Date(`${serverPaymentDateRaw}T00:00:00`);
+      if (!isNaN(paymentStart.getTime())) {
+        paymentStart.setHours(0, 0, 0, 0);
+        const daysUntil = Math.round(
+          (paymentStart.getTime() - startOfToday.getTime()) / 86_400_000,
+        );
+        let urgency: "overdue" | "today" | "soon" | "upcoming" = "upcoming";
+        if (daysUntil < 0) urgency = "overdue";
+        else if (daysUntil === 0) urgency = "today";
+        else if (daysUntil <= 7) urgency = "soon";
+        serverPayment = { paymentDate: serverPaymentDateRaw, daysUntil, urgency };
+      }
+    }
+
     res.json({
       generatedAt: new Date().toISOString(),
       // ----- 1. URGENT (eski format saqlanadi backwards-compat uchun) -----
@@ -1939,6 +1962,8 @@ app.get("/api/notifications", async (req: Request, res: Response): Promise<void>
       // ----- 4. LARGE -----
       large,
       largeCount: large.length,
+      // ----- 5. SERVER TO'LOVI -----
+      serverPayment,
       thresholds: {
         staleDays: STALE_DAYS,
         large: LARGE_THRESHOLD,

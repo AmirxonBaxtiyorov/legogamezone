@@ -24,6 +24,7 @@ import {
   Volume2,
   VolumeX,
   Globe,
+  Server,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,6 +46,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { formatMoney, formatDate, formatDateTime, formatRelativeI18n } from "@/lib/format";
+import {
+  formatServerPaymentReminder,
+  serverPaymentStyles,
+  type ServerPaymentStatus,
+} from "@/lib/serverPaymentReminder";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import { useT } from "@/lib/i18n";
@@ -145,6 +151,12 @@ interface LargeItem {
   createdBy: string;
 }
 
+interface ServerPaymentNotif {
+  paymentDate: string;
+  daysUntil: number;
+  urgency: ServerPaymentStatus["urgency"];
+}
+
 interface NotifResponse {
   generatedAt: string;
   items: UrgentItem[];
@@ -162,6 +174,7 @@ interface NotifResponse {
   staleCount: number;
   large: LargeItem[];
   largeCount: number;
+  serverPayment?: ServerPaymentNotif | null;
   thresholds: { staleDays: number; large: number };
 }
 
@@ -170,6 +183,7 @@ type Tab = "urgent" | "activity" | "stale" | "large";
 // ==== Component ====
 export function NotificationBell() {
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
   const { t } = useT();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -216,9 +230,14 @@ export function NotificationBell() {
     [data, prefs.snoozedUntil], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  const serverPayment = data?.serverPayment ?? null;
+  const showServerPayment =
+    !!serverPayment && !isSnoozed("serverPayment:global");
+
   const urgentTotal = visibleUrgent.length;
   const overdue = visibleUrgent.filter((i) => i.urgency === "overdue").length;
-  const totalBadge = urgentTotal + visibleStale.length;
+  const serverOverdue = showServerPayment && serverPayment?.urgency === "overdue";
+  const totalBadge = urgentTotal + visibleStale.length + (showServerPayment ? 1 : 0);
 
   // ----- Yangi urgent kelganda ovoz + brauzer notify -----
   useEffect(() => {
@@ -238,6 +257,23 @@ export function NotificationBell() {
     }
     prefs.setLastSeenUrgent(cur);
   }, [data?.counts?.overdue, data?.counts?.today]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Server to'lovi eslatmasi — yaqinlashganda ovoz + brauzer notify
+  useEffect(() => {
+    if (!serverPayment || isSnoozed("serverPayment:global")) return;
+    if (serverPayment.urgency !== "overdue" && serverPayment.urgency !== "today" && serverPayment.urgency !== "soon") return;
+    const key = `server-payment-notified-${serverPayment.paymentDate}-${serverPayment.urgency}`;
+    const last = sessionStorage.getItem(key);
+    if (last) return;
+    sessionStorage.setItem(key, "1");
+    playChime();
+    const formatted = formatDate(`${serverPayment.paymentDate}T00:00:00`);
+    maybeShowBrowserNotification(
+      t("serverPayment.reminder.title"),
+      formatServerPaymentReminder(t, serverPayment, formatted),
+      "server-payment",
+    );
+  }, [serverPayment?.paymentDate, serverPayment?.urgency]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tashqarisiga bosilganda yopish
   useEffect(() => {
@@ -274,6 +310,7 @@ export function NotificationBell() {
     for (const it of (data?.activity ?? [])) keys.push(`activity:${it.kind}:${it.id}`);
     for (const it of visibleStale) keys.push(`stale:${it.id}`);
     for (const it of (data?.large ?? [])) keys.push(`large:${it.id}`);
+    if (showServerPayment) keys.push("serverPayment:global");
     prefs.markAllRead(keys);
     toast.success(t("notif.markAllRead") + " ✓");
   };
@@ -293,7 +330,7 @@ export function NotificationBell() {
             className={cn(
               "absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold",
               "flex items-center justify-center px-1 text-white shadow",
-              overdue > 0 ? "bg-red-600 animate-pulse" : "bg-amber-500",
+              overdue > 0 || serverOverdue ? "bg-red-600 animate-pulse" : "bg-amber-500",
             )}
           >
             {totalBadge > 99 ? "99+" : totalBadge}
@@ -346,6 +383,23 @@ export function NotificationBell() {
               </Button>
             </div>
           </div>
+
+          {/* Server to'lovi eslatmasi — doim yuqorida */}
+          {showServerPayment && serverPayment && (
+            <ServerPaymentBanner
+              item={serverPayment}
+              t={t}
+              onSnooze={(h) => {
+                prefs.snooze("serverPayment:global", h);
+                toast.success(t("notif.snooze") + " ✓");
+              }}
+              onGoSettings={() => {
+                setOpen(false);
+                navigate("/settings");
+              }}
+              isOwner={user?.role === "owner"}
+            />
+          )}
 
           {/* Tabs */}
           <div className="grid grid-cols-4 border-b text-xs">
@@ -471,6 +525,54 @@ export function NotificationBell() {
 }
 
 // ==== Sub-components ====
+
+function ServerPaymentBanner({
+  item,
+  t,
+  onSnooze,
+  onGoSettings,
+  isOwner,
+}: {
+  item: ServerPaymentNotif;
+  t: (k: string, fb?: string) => string;
+  onSnooze: (hours: number) => void;
+  onGoSettings: () => void;
+  isOwner: boolean;
+}) {
+  const styles = serverPaymentStyles(item.urgency);
+  const formatted = formatDate(`${item.paymentDate}T00:00:00`);
+  const message = formatServerPaymentReminder(t, item, formatted);
+
+  return (
+    <div
+      className={cn(
+        "mx-3 mt-3 mb-1 rounded-lg border p-3 space-y-2",
+        styles.border,
+        styles.bg,
+        styles.pulse && "animate-pulse",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <Server className={cn("size-4 mt-0.5 shrink-0", styles.icon)} />
+        <div className="min-w-0">
+          <div className="text-xs font-semibold">{t("serverPayment.reminder.title")}</div>
+          <div className={cn("text-xs mt-0.5", styles.text)}>{message}</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 justify-end">
+        {isOwner && (
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onGoSettings}>
+            {t("nav.settings")}
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onSnooze(24)}>
+          <EyeOff className="size-3" />
+          {t("notif.snooze.24h")}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function TabBtn({
   active,

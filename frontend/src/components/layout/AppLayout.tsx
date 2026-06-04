@@ -25,6 +25,11 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { useAppSettings, AppBrandLogo } from "@/providers/AppSettingsProvider";
 import { useSettings } from "@/hooks/useApi";
 import { formatDate } from "@/lib/format";
+import {
+  formatServerPaymentReminder,
+  getServerPaymentStatus,
+  serverPaymentStyles,
+} from "@/lib/serverPaymentReminder";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -32,6 +37,7 @@ import { toast } from "sonner";
 import { GlobalSearch } from "@/components/shared/GlobalSearch";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { LangSwitcher } from "@/components/shared/LangSwitcher";
+import { isSnoozed } from "@/store/notifPrefs";
 import { useT } from "@/lib/i18n";
 
 const navItems = [
@@ -56,6 +62,29 @@ export function AppLayout() {
   const isOwner = user?.role === "owner";
   const [mobileOpen, setMobileOpen] = useState(false);
   const serverPaymentDate = settings?.serverPaymentDate?.value?.trim() || "";
+  const serverPaymentStatus = getServerPaymentStatus(serverPaymentDate);
+  const serverPaymentStyle = serverPaymentStatus
+    ? serverPaymentStyles(serverPaymentStatus.urgency)
+    : null;
+
+  const showServerPaymentToast = () => {
+    if (!serverPaymentStatus || isSnoozed("serverPayment:global")) return;
+    const formatted = formatDate(`${serverPaymentStatus.paymentDate}T00:00:00`);
+    const msg = formatServerPaymentReminder(t, serverPaymentStatus, formatted);
+    if (serverPaymentStatus.urgency === "overdue" || serverPaymentStatus.urgency === "today") {
+      toast.warning(msg, { id: "server-payment-reminder", duration: 8000 });
+    } else {
+      toast.info(msg, { id: "server-payment-reminder", duration: 6000 });
+    }
+  };
+
+  // Server to'lovi eslatmasi — kirganda va har 6 soatda
+  useEffect(() => {
+    if (!user || !serverPaymentStatus) return;
+    showServerPaymentToast();
+    const id = setInterval(showServerPaymentToast, 6 * 60 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [user?.id, serverPaymentStatus?.paymentDate, serverPaymentStatus?.daysUntil]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogout = async () => {
     try {
@@ -190,15 +219,26 @@ export function AppLayout() {
           <div className="flex-1 flex justify-center md:justify-start">
             <GlobalSearch />
           </div>
-          {serverPaymentDate && (
+          {serverPaymentStatus && serverPaymentStyle && (
             <div
-              className="hidden lg:flex items-center gap-2 shrink-0 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs"
-              title={t("header.serverPaymentDate")}
+              className={cn(
+                "hidden md:flex items-center gap-2 shrink-0 rounded-md border px-3 py-1.5 text-xs",
+                serverPaymentStyle.border,
+                serverPaymentStyle.bg,
+                serverPaymentStyle.pulse && "animate-pulse",
+              )}
+              title={formatServerPaymentReminder(
+                t,
+                serverPaymentStatus,
+                formatDate(`${serverPaymentStatus.paymentDate}T00:00:00`),
+              )}
             >
-              <CalendarClock className="size-3.5 text-amber-500 shrink-0" />
-              <span className="text-muted-foreground whitespace-nowrap">{t("header.serverPaymentDate")}:</span>
-              <span className="font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                {formatDate(serverPaymentDate + "T00:00:00")}
+              <CalendarClock className={cn("size-3.5 shrink-0", serverPaymentStyle.icon)} />
+              <span className="text-muted-foreground whitespace-nowrap hidden lg:inline">
+                {t("header.serverPaymentDate")}:
+              </span>
+              <span className={cn("font-semibold whitespace-nowrap", serverPaymentStyle.text)}>
+                {formatDate(`${serverPaymentStatus.paymentDate}T00:00:00`)}
               </span>
             </div>
           )}
