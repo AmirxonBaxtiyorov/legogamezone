@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { refreshDebtorsCache } from "@/lib/offline-cache";
 import {
+  CalendarClock,
   LayoutDashboard,
   Users,
   CreditCard,
@@ -22,6 +23,8 @@ import {
 import { useAuthStore } from "@/store/auth";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useAppSettings, AppBrandLogo } from "@/providers/AppSettingsProvider";
+import { useSettings } from "@/hooks/useApi";
+import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -47,10 +50,12 @@ export function AppLayout() {
   const { user, logout } = useAuthStore();
   const { theme, setTheme } = useTheme();
   const branding = useAppSettings();
+  const { data: settings } = useSettings();
   const { t } = useT();
   const navigate = useNavigate();
   const isOwner = user?.role === "owner";
   const [mobileOpen, setMobileOpen] = useState(false);
+  const serverPaymentDate = settings?.serverPaymentDate?.value?.trim() || "";
 
   const handleLogout = async () => {
     try {
@@ -185,6 +190,18 @@ export function AppLayout() {
           <div className="flex-1 flex justify-center md:justify-start">
             <GlobalSearch />
           </div>
+          {serverPaymentDate && (
+            <div
+              className="hidden lg:flex items-center gap-2 shrink-0 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs"
+              title={t("header.serverPaymentDate")}
+            >
+              <CalendarClock className="size-3.5 text-amber-500 shrink-0" />
+              <span className="text-muted-foreground whitespace-nowrap">{t("header.serverPaymentDate")}:</span>
+              <span className="font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                {formatDate(serverPaymentDate + "T00:00:00")}
+              </span>
+            </div>
+          )}
           <NotificationBell />
           <div className="hidden sm:block">
             <LangSwitcher compact />

@@ -2365,6 +2365,7 @@ const DEFAULT_SETTINGS: Record<string, { value: string; type: string }> = {
   logo: { value: "🎮", type: "text" }, // emoji yoki base64 image
   primaryColor: { value: "#6366f1", type: "color" },
   ownerLabel: { value: "Tarmoq egasi", type: "text" },
+  serverPaymentDate: { value: "", type: "date" },
 };
 
 async function loadSettings(): Promise<Record<string, { value: string; type: string }>> {
@@ -2392,12 +2393,32 @@ app.patch("/api/settings", async (req: Request, res: Response): Promise<void> =>
       res.status(403).json({ error: "Faqat ega sozlamalarni o'zgartira oladi" }); return;
     }
     const body = req.body || {};
-    const allowed = ["systemName", "systemSubtitle", "logo", "primaryColor", "ownerLabel"];
+    const allowed = ["systemName", "systemSubtitle", "logo", "primaryColor", "ownerLabel", "serverPaymentDate"];
     const oldSettings = await loadSettings();
     const changes: Record<string, { from: string; to: string }> = {};
 
     for (const key of allowed) {
       if (body[key] === undefined) continue;
+
+      if (key === "serverPaymentDate") {
+        const value = String(body[key] ?? "").trim();
+        if (!value) {
+          await prisma.appSetting.deleteMany({ where: { key } });
+          changes[key] = { from: oldSettings[key]?.value || "", to: "" };
+          continue;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || isNaN(new Date(value + "T00:00:00").getTime())) {
+          res.status(400).json({ error: "Noto'g'ri sana formati (YYYY-MM-DD)" }); return;
+        }
+        await prisma.appSetting.upsert({
+          where: { key },
+          create: { key, value, type: "date", updatedById: viewer.id },
+          update: { value, type: "date", updatedById: viewer.id },
+        });
+        changes[key] = { from: oldSettings[key]?.value || "", to: value };
+        continue;
+      }
+
       const value = String(body[key] ?? "").trim();
       if (!value) continue;
       // Logo bazasida 5MB cheklov

@@ -111,6 +111,12 @@ export const dict: Record<string, Dict> = {
     ru: "Владелец сети",
     en: "Network owner",
   },
+  "header.serverPaymentDate": {
+    "uz-Latn": "Server uchun to'lov kuni",
+    "uz-Cyrl": "Сервер учун тўлов куни",
+    ru: "День оплаты сервера",
+    en: "Server payment date",
+  },
   "header.role.admin": {
     "uz-Latn": "Admin",
     "uz-Cyrl": "Админ",
@@ -732,6 +738,24 @@ export const dict: Record<string, Dict> = {
     "uz-Cyrl": "Кешни тозалаш",
     ru: "Очистить кэш",
     en: "Clear cache",
+  },
+  "settings.serverPaymentDate.title": {
+    "uz-Latn": "Server to'lovi",
+    "uz-Cyrl": "Сервер тўлови",
+    ru: "Оплата сервера",
+    en: "Server payment",
+  },
+  "settings.serverPaymentDate.description": {
+    "uz-Latn": "Server uchun keyingi to'lov sanasini belgilang. Bu sana barcha adminlar uchun yuqori panelda ko'rinadi.",
+    "uz-Cyrl": "Сервер учун кейинги тўлов санасини белgilанг. Бу сана барча админлар учун юқори панелда кўринади.",
+    ru: "Укажите дату следующей оплаты сервера. Она будет видна всем администраторам в верхней панели.",
+    en: "Set the next server payment date. It will be visible to all admins in the top bar.",
+  },
+  "settings.serverPaymentDate.label": {
+    "uz-Latn": "To'lov sanasi",
+    "uz-Cyrl": "Тўлов санаси",
+    ru: "Дата оплаты",
+    en: "Payment date",
   },
 };
 

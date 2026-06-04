@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Save, Upload, Download, Trash2, RefreshCw, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Save, Upload, Download, Trash2, RefreshCw, ShieldCheck, Server, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 
 import { useSettings, useUpdateSettings } from "@/hooks/useApi";
@@ -28,6 +28,8 @@ export function SettingsPage() {
   const [subtitle, setSubtitle] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#4f46e5");
   const [logo, setLogo] = useState<string | null>(null);
+  const [serverPaymentDate, setServerPaymentDate] = useState("");
+  const serverPaymentDateRef = useRef<HTMLInputElement>(null);
 
   const [cacheAt, setCacheAt] = useState<string | null>(null);
   const [cacheCount, setCacheCount] = useState<number>(0);
@@ -39,6 +41,7 @@ export function SettingsPage() {
     setSubtitle(settings.systemSubtitle?.value ?? "");
     setPrimaryColor(settings.primaryColor?.value ?? "#4f46e5");
     setLogo(settings.logo?.value ?? null);
+    setServerPaymentDate(settings.serverPaymentDate?.value ?? "");
   }, [settings]);
 
   // Boshlanishida keshdan o'qib olamiz
@@ -64,6 +67,22 @@ export function SettingsPage() {
       primaryColor,
       ...(logo ? { logo } : {}),
     });
+  };
+
+  const saveServerPaymentDate = async () => {
+    await update.mutateAsync({
+      serverPaymentDate: serverPaymentDate || "",
+    });
+  };
+
+  const openServerPaymentDatePicker = () => {
+    const el = serverPaymentDateRef.current;
+    if (!el) return;
+    try {
+      el.showPicker();
+    } catch {
+      el.focus();
+    }
   };
 
   const refreshCache = async () => {
@@ -194,6 +213,48 @@ export function SettingsPage() {
             </CardHeader>
             <CardContent>
               <LangSwitcher />
+            </CardContent>
+          </Card>
+
+          {/* ----- Server to'lovi ----- */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Server className="size-4 text-amber-500" />
+                {t("settings.serverPaymentDate.title")}
+              </CardTitle>
+              <CardDescription>{t("settings.serverPaymentDate.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="serverPaymentDate">{t("settings.serverPaymentDate.label")}</Label>
+                <div className="relative max-w-xs">
+                  <Input
+                    ref={serverPaymentDateRef}
+                    id="serverPaymentDate"
+                    type="date"
+                    value={serverPaymentDate}
+                    onChange={(e) => setServerPaymentDate(e.target.value)}
+                    onClick={openServerPaymentDatePicker}
+                    className="cursor-pointer pr-10 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-label={t("settings.serverPaymentDate.label")}
+                    onClick={openServerPaymentDatePicker}
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    <CalendarDays className="size-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-end pt-2">
+                <Button onClick={saveServerPaymentDate} disabled={update.isPending}>
+                  <Save className="size-4" />
+                  {t("common.save")}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
