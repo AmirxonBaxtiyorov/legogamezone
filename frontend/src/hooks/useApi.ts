@@ -14,6 +14,9 @@ import type {
   AuditLogItem,
   ItemType,
   PaymentMethod,
+  UsersStatsResponse,
+  UserDetailResponse,
+  TransactionsResponse,
 } from "@/types/api";
 
 // ----- STATS -----
@@ -423,6 +426,42 @@ export function useResetAdminPassword() {
     },
     onSuccess: () => toast.success("Parol yangilandi"),
     onError: (err) => toast.error(getErrorMessage(err)),
+  });
+}
+
+// ----- USER STATS (owner only) -----
+export function useUsersStats(branchId?: number | null) {
+  return useQuery({
+    queryKey: ["users-stats", branchId ?? "all"],
+    queryFn: async () => {
+      const r = await api.get<UsersStatsResponse>("/users/stats", {
+        params: branchId ? { branchId } : {},
+      });
+      return r.data;
+    },
+  });
+}
+
+export function useUserStats(userId: number | null) {
+  return useQuery({
+    queryKey: ["user-stats", userId],
+    queryFn: async () => {
+      const r = await api.get<UserDetailResponse>(`/users/${userId}/stats`);
+      return r.data;
+    },
+    enabled: !!userId,
+  });
+}
+
+// ----- TRANSACTIONS (owner only) -----
+export function useTransactions() {
+  return useQuery({
+    queryKey: ["transactions"],
+    queryFn: async () => {
+      const r = await api.get<TransactionsResponse>("/transactions");
+      return r.data;
+    },
+    refetchInterval: 30_000,
   });
 }
 

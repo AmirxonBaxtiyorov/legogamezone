@@ -6,6 +6,8 @@ import { ClientsPage } from "./pages/ClientsPage";
 import { DebtsPage } from "./pages/DebtsPage";
 import { PaymentsPage } from "./pages/PaymentsPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { TransactionsPage } from "./pages/TransactionsPage";
+import { UsersPage } from "./pages/UsersPage";
 import { AuditPage } from "./pages/AuditPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { BranchesPage } from "./pages/BranchesPage";
@@ -34,6 +36,14 @@ export default function App() {
         <Route
           path="/reports"
           element={<OwnerOnly><ReportsPage /></OwnerOnly>}
+        />
+        <Route
+          path="/transactions"
+          element={<OwnerOnly><TransactionsPage /></OwnerOnly>}
+        />
+        <Route
+          path="/users"
+          element={<OwnerOnly><UsersPage /></OwnerOnly>}
         />
         <Route
           path="/audit"

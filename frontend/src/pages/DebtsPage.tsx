@@ -180,7 +180,7 @@ export function DebtsPage() {
                       <Button size="icon" variant="ghost" title="Tahrirlash" disabled>
                         <Pencil className="size-4" />
                       </Button>
-                      {d.status !== "cancelled" && (
+                      {role === "owner" && d.status !== "cancelled" && (
                         <Button
                           size="icon"
                           variant="ghost"

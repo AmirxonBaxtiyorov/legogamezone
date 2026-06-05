@@ -113,6 +113,82 @@ export interface AuditLogItem {
   createdAt: string;
 }
 
+export interface UserStatsItem {
+  id: number;
+  username: string;
+  fullName: string;
+  role: Role;
+  branchId: number | null;
+  branchName: string | null;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  debtsCount: number;
+  debtsAmount: number;
+  paymentsCount: number;
+  paymentsAmount: number;
+}
+
+export interface UsersStatsResponse {
+  generatedAt: string;
+  totalUsers: number;
+  totalDebtsCount: number;
+  totalPaymentsCount: number;
+  totalDebtsAmount: number;
+  totalPaymentsAmount: number;
+  items: UserStatsItem[];
+}
+
+export interface UserDetailResponse {
+  user: {
+    id: number;
+    username: string;
+    fullName: string;
+    role: Role;
+    branchId: number | null;
+    branchName: string | null;
+    isActive: boolean;
+    lastLoginAt: string | null;
+    createdAt: string;
+  };
+  summary: {
+    debtsCount: number;
+    debtsAmount: number;
+    paymentsCount: number;
+    paymentsAmount: number;
+  };
+  debts: Array<{
+    id: number;
+    client: string;
+    clientPhone: string;
+    branch: string;
+    amount: number;
+    paidAmount: number;
+    remainingAmount: number;
+    itemType: ItemType;
+    itemDetails: string | null;
+    status: DebtStatus;
+    createdAt: string;
+  }>;
+  payments: Array<{
+    id: number;
+    amount: number;
+    method: PaymentMethod;
+    paidDate: string;
+    client: string;
+    branch: string;
+  }>;
+  auditLogs: Array<{
+    id: number;
+    action: string;
+    tableName: string;
+    recordId: number;
+    branch: string | null;
+    createdAt: string;
+    oldData: unknown;
+    newData: unknown;
+  }>;
+}
+
 export interface StatsResponse {
   generatedAt: string;
   viewer: { fullName: string; role: Role; branchName: string | null; branchId: number | null };
@@ -173,4 +249,28 @@ export interface StatsResponse {
     debtsCount: number;
     paymentsCount: number;
   }>;
+}
+
+export interface TransactionItem {
+  id: number;
+  type: "debt" | "payment";
+  clientName: string;
+  clientPhone: string;
+  item: string;
+  itemType: string;
+  amount: number;
+  paidAmount?: number;
+  remainingAmount?: number;
+  status?: string;
+  debtAmount?: number;
+  method?: string;
+  date: string;
+  adminId: number;
+  adminName: string;
+  adminUsername: string;
+  branch: string;
+}
+
+export interface TransactionsResponse {
+  transactions: TransactionItem[];
 }

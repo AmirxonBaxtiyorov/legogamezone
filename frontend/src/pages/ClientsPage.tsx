@@ -13,6 +13,7 @@ import {
 
 import { useClientsAll, useSoftDeleteClient } from "@/hooks/useApi";
 import { useBranchFilterStore } from "@/store/branchFilter";
+import { useAuthStore } from "@/store/auth";
 import { formatMoney, formatDate } from "@/lib/format";
 
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -38,6 +39,7 @@ import type { ClientLite } from "@/types/api";
 
 export function ClientsPage() {
   const branchId = useBranchFilterStore((s) => s.branchId);
+  const role = useAuthStore((s) => s.user?.role);
   const { data, isLoading } = useClientsAll(branchId);
   const softDelete = useSoftDeleteClient();
 
@@ -182,14 +184,16 @@ export function ClientsPage() {
                           <Ban className="size-4" />
                         )}
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        title="Arxivga"
-                        onClick={() => setDeleteId(c.id)}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
+                      {role === "owner" && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Arxivga"
+                          onClick={() => setDeleteId(c.id)}
+                        >
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
